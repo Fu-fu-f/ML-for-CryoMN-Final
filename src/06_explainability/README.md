@@ -13,18 +13,26 @@ python src/06_explainability/explainability.py
 
 ## Input
 
-- **Model**: `models/gp_model.pkl`
-- **Scaler**: `models/scaler.pkl`
-- **Metadata**: `models/model_metadata.json`
-- **Feature Importance**: `models/feature_importance.csv`
-- **Data**: `data/processed/parsed_formulations.csv`
+**Standard GP mode (literature-only):**
+- `models/gp_model.pkl`, `models/scaler.pkl`
+- `data/processed/parsed_formulations.csv`
+
+**Composite GP mode (after running validation loop):**
+- `models/composite_model.pkl` (auto-detected if present)
+- `data/processed/evaluation_data.csv` (literature + wet lab rows with weights)
+
+Common:
+- `models/model_metadata.json`
+- `models/feature_importance.csv` (from training; recomputed at runtime)
 
 ## Output
 
-All visualizations are saved to `results/explainability/`:
+- **Standard GP**: saves to `results/explainability/`
+- **Composite GP**: saves to `results/explainability/iteration/` (preserves base literature-only graphs)
 
 | File | Description |
 |------|-------------|
+| `feature_importance.csv` | Recomputed permutation importance (weighted for composite model) |
 | `feature_importance.png` | Horizontal bar chart of permutation-based feature importance |
 | `shap_summary.png` | SHAP beeswarm plot showing individual feature impacts |
 | `shap_importance.png` | SHAP-based feature importance ranking |
@@ -35,10 +43,8 @@ All visualizations are saved to `results/explainability/`:
 
 ## Visualization Details
 
-### 1. Feature Importance Bar Chart
-Shows which ingredients have the strongest influence on cell viability predictions, based on permutation importance from model training.
-
-**Note**: Feature names are cleaned for display (both `_M` and `_pct` suffixes are removed).
+### 0. Feature Importance (recomputed)
+Feature importance is always **recomputed at runtime** using permutation importance against the active model and evaluation dataset. When using the composite model, importance uses **weighted R²** where each wet lab data point counts 50× more than each literature data point, matching the model's trust ratio.
 
 ### 2. SHAP Analysis
 Uses [SHAP (SHapley Additive exPlanations)](https://shap.readthedocs.io/) to explain individual predictions:

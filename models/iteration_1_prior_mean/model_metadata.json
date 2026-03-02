@@ -23,7 +23,7 @@
     "trehalose_M"
   ],
   "n_features": 21,
-  "trained_at": "2026-02-27T16:25:43.156668",
+  "trained_at": "2026-01-30T12:33:19.875878",
   "config": {
     "kernel_type": "matern",
     "matern_nu": 2.5,
@@ -48,14 +48,14 @@
       "mean_uncertainty": 19.19245034420479
     }
   },
-  "updated_at": "2026-02-27T16:27:16.786436",
+  "updated_at": "2026-03-02T13:15:01.092406",
   "n_validation_samples": 18,
   "n_literature_samples": 198,
-  "validation_rmse": 2.4286067415010617,
+  "validation_rmse": 0.5489319847682069,
   "literature_only_rmse": 38.46972696321922,
   "weighting_method": "prior_mean_correction",
   "alpha_literature": 1.0,
-  "alpha_wetlab": 0.1,
-  "noise_ratio": 10.0,
+  "alpha_wetlab": 0.02,
+  "noise_ratio": 50.0,
   "is_composite_model": true
 }

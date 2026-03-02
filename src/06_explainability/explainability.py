@@ -17,6 +17,7 @@ Date: 2026-01-27
 import pandas as pd
 import numpy as np
 import os
+import sys
 import json
 import pickle
 import warnings
@@ -37,6 +38,13 @@ except ImportError:
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import norm
+
+# Add validation loop to path for CompositeGP deserialization
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop')
+if _validation_dir not in sys.path:
+    sys.path.insert(0, _validation_dir)
+from update_model_weighted_prior import CompositeGP  # noqa: E402
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -70,25 +78,19 @@ class ExplainabilityConfig:
     
     # PDP settings
     n_pdp_points = 50
-    pdp_specific_features = [
-        'ethylene_glycol_M', 'fbs_pct', 'hsa_pct', 'glycerol_M',
-        'human_serum_pct', 'hes_pct', 'dmso_M', 'trehalose_M'
-    ]
+    n_top_features_pdp = 8
+    pdp_specific_features = None  # Use top features from importance ranking
     
     # Contour settings
     n_contour_points = 30
     n_top_pairs = 3
-    interaction_specific_pairs = [
-        ('ethylene_glycol_M', 'fbs_pct'), 
-        ('ethylene_glycol_M', 'hsa_pct'), 
-        ('glycerol_M', 'hsa_pct')
-    ]
+    interaction_specific_pairs = None  # Use top feature pairs from importance ranking
     
     # SHAP settings
     n_shap_samples = 100  # Background samples for SHAP
     
     # Acquisition settings
-    acquisition_specific_pair = ('dmso_M', 'ethylene_glycol_M')
+    acquisition_specific_pair = None  # Use top 2 features from importance ranking
     
     # Color settings
     cmap_viability = 'RdYlGn'
@@ -100,38 +102,67 @@ class ExplainabilityConfig:
 # UTILITY FUNCTIONS
 # =============================================================================
 
-def load_model_and_data(project_root: str) -> Tuple[GaussianProcessRegressor, 
-                                                      StandardScaler, 
-                                                      List[str], 
-                                                      pd.DataFrame,
-                                                      pd.DataFrame]:
+def load_model_and_data(project_root: str):
     """
     Load the trained GP model, scaler, and data.
     
+    Prefers composite_model.pkl (literature + wet lab correction) if available,
+    falls back to gp_model.pkl (literature-only).
+    
+    When composite model is detected, loads evaluation_data.csv (which includes
+    both literature and wet lab rows with weights) instead of parsed_formulations.csv.
+    
     Returns:
-        Tuple of (gp_model, scaler, feature_names, data_df, importance_df)
+        Tuple of (model, scaler, feature_names, data_df, importance_df, is_composite)
     """
     model_dir = os.path.join(project_root, 'models')
-    data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
     
-    # Load model
-    with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
-        gp = pickle.load(f)
-    with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
-        scaler = pickle.load(f)
+    # Load model — prefer composite model if available
+    composite_path = os.path.join(model_dir, 'composite_model.pkl')
+    is_composite = False
+    
+    if os.path.exists(composite_path):
+        with open(composite_path, 'rb') as f:
+            gp = pickle.load(f)
+        is_composite = True
+        scaler = None  # Composite model handles scaling internally
+        print("  >>> Using COMPOSITE model (literature prior + wet lab correction)")
+        
+        # Load evaluation data (literature + wet lab with weights)
+        eval_path = os.path.join(project_root, 'data', 'processed', 'evaluation_data.csv')
+        if os.path.exists(eval_path):
+            df = pd.read_csv(eval_path)
+            print(f"  >>> Loaded evaluation data with weights ({len(df)} rows)")
+        else:
+            # Fallback to literature-only data
+            data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
+            df = pd.read_csv(data_path)
+            df = df[df['viability_percent'] <= 100].copy()
+            df['weight'] = 1.0
+            df['source'] = 'literature'
+            print("  ⚠ evaluation_data.csv not found, using parsed_formulations.csv")
+    else:
+        with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
+            gp = pickle.load(f)
+        with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
+            scaler = pickle.load(f)
+        print("  >>> Using STANDARD GP model (literature-only)")
+        
+        data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
+        df = pd.read_csv(data_path)
+        df = df[df['viability_percent'] <= 100].copy()
+        df['weight'] = 1.0
+        df['source'] = 'literature'
+    
     with open(os.path.join(model_dir, 'model_metadata.json'), 'r') as f:
         metadata = json.load(f)
     
     feature_names = metadata['feature_names']
     
-    # Load data
-    df = pd.read_csv(data_path)
-    df = df[df['viability_percent'] <= 100].copy()
-    
-    # Load feature importance
+    # Load feature importance (from model training — will be recomputed)
     importance_df = pd.read_csv(os.path.join(model_dir, 'feature_importance.csv'))
     
-    return gp, scaler, feature_names, df, importance_df
+    return gp, scaler, feature_names, df, importance_df, is_composite
 
 
 def clean_feature_name(name: str) -> str:
@@ -146,6 +177,59 @@ def get_unit(feature: str) -> str:
     elif '_M' in feature:
         return 'M'
     return ''
+
+
+def resolve_feature_index(clean_name: str, feature_names: List[str]) -> int:
+    """
+    Resolve a cleaned feature name (from importance_df) back to its index
+    in the full feature_names list.
+    
+    Handles both _M and _pct suffixes by trying all possibilities.
+    
+    Args:
+        clean_name: Cleaned name like 'ectoin', 'fbs', 'peg_3350'
+        feature_names: Full feature names like 'ectoin_M', 'fbs_pct'
+    
+    Returns:
+        Index into feature_names, or -1 if not found
+    """
+    # Try exact match first
+    if clean_name in feature_names:
+        return feature_names.index(clean_name)
+    # Try with _M suffix
+    if clean_name + '_M' in feature_names:
+        return feature_names.index(clean_name + '_M')
+    # Try with _pct suffix
+    if clean_name + '_pct' in feature_names:
+        return feature_names.index(clean_name + '_pct')
+    return -1
+
+
+def resolve_feature_full_name(clean_name: str, feature_names: List[str]) -> str:
+    """Resolve cleaned name to full feature name (with suffix)."""
+    idx = resolve_feature_index(clean_name, feature_names)
+    if idx >= 0:
+        return feature_names[idx]
+    return clean_name
+
+
+def predict_model(model, scaler, X_raw: np.ndarray, is_composite: bool,
+                  return_std: bool = False):
+    """
+    Centralized prediction helper that handles both model types.
+    
+    Args:
+        model: GP model (GaussianProcessRegressor or CompositeGP)
+        scaler: Feature scaler (unused if is_composite)
+        X_raw: Unscaled feature matrix
+        is_composite: If True, model handles scaling internally
+        return_std: Whether to return uncertainty
+    """
+    if is_composite:
+        return model.predict(X_raw, return_std=return_std)
+    else:
+        X_scaled = scaler.transform(X_raw)
+        return model.predict(X_scaled, return_std=return_std)
 
 
 # =============================================================================
@@ -201,8 +285,8 @@ def plot_feature_importance(importance_df: pd.DataFrame, output_dir: str,
 # 2. SHAP VALUES ANALYSIS
 # =============================================================================
 
-def compute_shap_values(gp: GaussianProcessRegressor, scaler: StandardScaler,
-                        X: np.ndarray, feature_names: List[str],
+def compute_shap_values(model, scaler, X: np.ndarray, feature_names: List[str],
+                        is_composite: bool = False,
                         config: ExplainabilityConfig = None) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute SHAP values using KernelExplainer (GP-compatible).
@@ -220,8 +304,7 @@ def compute_shap_values(gp: GaussianProcessRegressor, scaler: StandardScaler,
     
     # Define prediction function
     def predict_fn(X_raw):
-        X_scaled = scaler.transform(X_raw)
-        return gp.predict(X_scaled)
+        return predict_model(model, scaler, X_raw, is_composite, return_std=False)
     
     try:
         import shap
@@ -287,9 +370,10 @@ def plot_shap_summary(shap_values: np.ndarray, X_explain: np.ndarray,
 # 3. PARTIAL DEPENDENCE PLOTS (PDPs)
 # =============================================================================
 
-def plot_partial_dependence(gp: GaussianProcessRegressor, scaler: StandardScaler,
+def plot_partial_dependence(model, scaler,
                             X: np.ndarray, feature_names: List[str],
                             importance_df: pd.DataFrame, output_dir: str,
+                            is_composite: bool = False,
                             config: ExplainabilityConfig = None):
     """
     Create partial dependence plots for top features.
@@ -314,9 +398,10 @@ def plot_partial_dependence(gp: GaussianProcessRegressor, scaler: StandardScaler
     
     for idx, feature in enumerate(top_features):
         ax = axes[idx]
-        feat_idx = feature_indices.get(feature + '_M', feature_indices.get(feature, None))
+        feat_idx = resolve_feature_index(feature, feature_names)
+        full_name = resolve_feature_full_name(feature, feature_names)
         
-        if feat_idx is None:
+        if feat_idx < 0:
             continue
         
         # Create feature range
@@ -336,8 +421,8 @@ def plot_partial_dependence(gp: GaussianProcessRegressor, scaler: StandardScaler
         for val in feat_values:
             X_temp = X_mean.copy()
             X_temp[feat_idx] = val
-            X_scaled = scaler.transform(X_temp.reshape(1, -1))
-            mean, std = gp.predict(X_scaled, return_std=True)
+            mean, std = predict_model(model, scaler, X_temp.reshape(1, -1),
+                                      is_composite, return_std=True)
             pdp_means.append(mean[0])
             pdp_stds.append(std[0])
         
@@ -351,9 +436,9 @@ def plot_partial_dependence(gp: GaussianProcessRegressor, scaler: StandardScaler
                         pdp_means + 1.96 * pdp_stds,
                         alpha=0.3, color='blue', label='95% CI')
         
-        ax.set_xlabel(f'{clean_feature_name(feature)} ({get_unit(feature)})', fontsize=10)
+        ax.set_xlabel(f'{clean_feature_name(full_name)} ({get_unit(full_name)})', fontsize=10)
         ax.set_ylabel('Predicted Viability (%)', fontsize=10)
-        ax.set_title(f'PDP: {clean_feature_name(feature)}', fontsize=11, fontweight='bold')
+        ax.set_title(f'PDP: {clean_feature_name(full_name)}', fontsize=11, fontweight='bold')
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
     
@@ -376,9 +461,10 @@ def plot_partial_dependence(gp: GaussianProcessRegressor, scaler: StandardScaler
 # 4. 2D CONTOUR PLOTS (INGREDIENT INTERACTIONS)
 # =============================================================================
 
-def plot_interaction_contours(gp: GaussianProcessRegressor, scaler: StandardScaler,
+def plot_interaction_contours(model, scaler,
                               X: np.ndarray, feature_names: List[str],
                               importance_df: pd.DataFrame, output_dir: str,
+                              is_composite: bool = False,
                               config: ExplainabilityConfig = None):
     """
     Create 2D contour plots showing interactions between top ingredient pairs.
@@ -388,18 +474,20 @@ def plot_interaction_contours(gp: GaussianProcessRegressor, scaler: StandardScal
     # Get top features
     top_features = importance_df.nlargest(4, 'importance')['feature'].tolist()
     
-    # Get feature indices (use full feature names with suffixes)
-    feature_indices = {name: i for i, name in enumerate(feature_names)}
+    # Resolve full feature names
+    resolved = [(f, resolve_feature_index(f, feature_names), resolve_feature_full_name(f, feature_names))
+                for f in top_features]
+    resolved = [(f, idx, full) for f, idx, full in resolved if idx >= 0]
     
     # Generate pairs or use specific pairs
     if hasattr(config, 'interaction_specific_pairs') and config.interaction_specific_pairs:
         pairs = config.interaction_specific_pairs
     else:
-        # Generate pairs
+        # Generate pairs from resolved features
         pairs = []
-        for i in range(len(top_features)):
-            for j in range(i + 1, len(top_features)):
-                pairs.append((top_features[i], top_features[j]))
+        for i in range(len(resolved)):
+            for j in range(i + 1, len(resolved)):
+                pairs.append((resolved[i], resolved[j]))
         
         pairs = pairs[:config.n_top_pairs]
     
@@ -410,15 +498,10 @@ def plot_interaction_contours(gp: GaussianProcessRegressor, scaler: StandardScal
     
     X_mean = X.mean(axis=0)
     
-    for idx, (feat1, feat2) in enumerate(pairs):
-        ax = axes[idx]
+    for p_idx, ((feat1, idx1, full1), (feat2, idx2, full2)) in enumerate(pairs):
+        ax = axes[p_idx]
         
-        idx1 = feature_indices.get(feat1)
-        idx2 = feature_indices.get(feat2)
-        
-        if idx1 is None or idx2 is None:
-            continue
-        
+
         # Create grid
         x1_range = np.linspace(X[:, idx1].min(), X[:, idx1].max(), config.n_contour_points)
         x2_range = np.linspace(X[:, idx2].min(), X[:, idx2].max(), config.n_contour_points)
@@ -431,8 +514,8 @@ def plot_interaction_contours(gp: GaussianProcessRegressor, scaler: StandardScal
                 X_temp = X_mean.copy()
                 X_temp[idx1] = X1[i, j]
                 X_temp[idx2] = X2[i, j]
-                X_scaled = scaler.transform(X_temp.reshape(1, -1))
-                Z[i, j] = gp.predict(X_scaled)[0]
+                Z[i, j] = predict_model(model, scaler, X_temp.reshape(1, -1),
+                                        is_composite)[0]
         
         # Plot contour
         contour = ax.contourf(X1, X2, Z, levels=20, cmap=config.cmap_viability)
@@ -441,9 +524,9 @@ def plot_interaction_contours(gp: GaussianProcessRegressor, scaler: StandardScal
         # Add contour lines
         ax.contour(X1, X2, Z, levels=10, colors='white', alpha=0.3, linewidths=0.5)
         
-        ax.set_xlabel(f'{clean_feature_name(feat1)} ({get_unit(feat1)})', fontsize=10)
-        ax.set_ylabel(f'{clean_feature_name(feat2)} ({get_unit(feat2)})', fontsize=10)
-        ax.set_title(f'{clean_feature_name(feat1)} × {clean_feature_name(feat2)}', 
+        ax.set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})', fontsize=10)
+        ax.set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})', fontsize=10)
+        ax.set_title(f'{clean_feature_name(full1)} × {clean_feature_name(full2)}', 
                      fontsize=11, fontweight='bold')
     
     plt.suptitle('Ingredient Interaction Effects on Cell Viability', 
@@ -471,9 +554,10 @@ def expected_improvement(mean: np.ndarray, std: np.ndarray,
     return ei
 
 
-def plot_acquisition_landscape(gp: GaussianProcessRegressor, scaler: StandardScaler,
+def plot_acquisition_landscape(model, scaler,
                                X: np.ndarray, y: np.ndarray, feature_names: List[str],
                                importance_df: pd.DataFrame, output_dir: str,
+                               is_composite: bool = False,
                                config: ExplainabilityConfig = None):
     """
     Visualize the Expected Improvement acquisition function landscape.
@@ -487,19 +571,21 @@ def plot_acquisition_landscape(gp: GaussianProcessRegressor, scaler: StandardSca
         # Get top 2 features
         top_features = importance_df.nlargest(2, 'importance')['feature'].tolist()
     
-    # Get feature indices (use full feature names with suffixes)
-    feature_indices = {name: i for i, name in enumerate(feature_names)}
-    
     feat1, feat2 = top_features[0], top_features[1]
-    idx1 = feature_indices.get(feat1)
-    idx2 = feature_indices.get(feat2)
+    idx1 = resolve_feature_index(feat1, feature_names)
+    idx2 = resolve_feature_index(feat2, feature_names)
+    full1 = resolve_feature_full_name(feat1, feature_names)
+    full2 = resolve_feature_full_name(feat2, feature_names)
     
     X_mean = X.mean(axis=0)
-    y_best = y.max()
     
-    # Create grid (use fixed range 0-7M for DMSO x-axis to exclude outliers)
+    # Compute y_best from model predictions (important for composite model)
+    y_pred = predict_model(model, scaler, X, is_composite)
+    y_best = np.max(y_pred)
+    
+    # Create grid (use data-driven ranges)
     n_points = config.n_contour_points
-    x1_range = np.linspace(0, 7, n_points)  # Fixed range for DMSO
+    x1_range = np.linspace(X[:, idx1].min(), X[:, idx1].max(), n_points)
     x2_range = np.linspace(X[:, idx2].min(), X[:, idx2].max(), n_points)
     X1, X2 = np.meshgrid(x1_range, x2_range)
     
@@ -513,8 +599,8 @@ def plot_acquisition_landscape(gp: GaussianProcessRegressor, scaler: StandardSca
             X_temp = X_mean.copy()
             X_temp[idx1] = X1[i, j]
             X_temp[idx2] = X2[i, j]
-            X_scaled = scaler.transform(X_temp.reshape(1, -1))
-            mean, std = gp.predict(X_scaled, return_std=True)
+            mean, std = predict_model(model, scaler, X_temp.reshape(1, -1),
+                                      is_composite, return_std=True)
             Z_mean[i, j] = mean[0]
             Z_std[i, j] = std[0]
             Z_ei[i, j] = expected_improvement(mean, std, y_best)[0]
@@ -525,22 +611,22 @@ def plot_acquisition_landscape(gp: GaussianProcessRegressor, scaler: StandardSca
     # Plot 1: GP Mean
     contour1 = axes[0].contourf(X1, X2, Z_mean, levels=20, cmap=config.cmap_viability)
     plt.colorbar(contour1, ax=axes[0], label='Predicted Viability (%)')
-    axes[0].set_xlabel(f'{clean_feature_name(feat1)} ({get_unit(feat1)})')
-    axes[0].set_ylabel(f'{clean_feature_name(feat2)} ({get_unit(feat2)})')
+    axes[0].set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
+    axes[0].set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     axes[0].set_title('GP Mean Prediction', fontweight='bold')
     
     # Plot 2: GP Uncertainty
     contour2 = axes[1].contourf(X1, X2, Z_std, levels=20, cmap=config.cmap_uncertainty)
     plt.colorbar(contour2, ax=axes[1], label='Uncertainty (std)')
-    axes[1].set_xlabel(f'{clean_feature_name(feat1)} ({get_unit(feat1)})')
-    axes[1].set_ylabel(f'{clean_feature_name(feat2)} ({get_unit(feat2)})')
+    axes[1].set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
+    axes[1].set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     axes[1].set_title('GP Uncertainty', fontweight='bold')
     
     # Plot 3: Expected Improvement
     contour3 = axes[2].contourf(X1, X2, Z_ei, levels=20, cmap=config.cmap_ei)
     plt.colorbar(contour3, ax=axes[2], label='Expected Improvement')
-    axes[2].set_xlabel(f'{clean_feature_name(feat1)} ({get_unit(feat1)})')
-    axes[2].set_ylabel(f'{clean_feature_name(feat2)} ({get_unit(feat2)})')
+    axes[2].set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
+    axes[2].set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     axes[2].set_title('Acquisition Function (EI)', fontweight='bold')
     
     # Mark best observed point
@@ -566,17 +652,17 @@ def plot_acquisition_landscape(gp: GaussianProcessRegressor, scaler: StandardSca
 # 6. GP UNCERTAINTY VISUALIZATION
 # =============================================================================
 
-def plot_uncertainty_analysis(gp: GaussianProcessRegressor, scaler: StandardScaler,
+def plot_uncertainty_analysis(model, scaler,
                               X: np.ndarray, y: np.ndarray, feature_names: List[str],
-                              output_dir: str, config: ExplainabilityConfig = None):
+                              output_dir: str, is_composite: bool = False,
+                              config: ExplainabilityConfig = None):
     """
     Visualize GP uncertainty across the observed data.
     """
     config = config or ExplainabilityConfig()
     
     # Get predictions with uncertainty for all data points
-    X_scaled = scaler.transform(X)
-    y_pred, y_std = gp.predict(X_scaled, return_std=True)
+    y_pred, y_std = predict_model(model, scaler, X, is_composite, return_std=True)
     
     # Create figure with 2x2 subplots
     fig, axes = plt.subplots(2, 2, figsize=config.figsize_large)
@@ -646,7 +732,8 @@ def plot_uncertainty_analysis(gp: GaussianProcessRegressor, scaler: StandardScal
         ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
                  f'{val:.1f}', ha='center', fontsize=9)
     
-    plt.suptitle('GP Model Uncertainty Analysis', fontsize=14, fontweight='bold', y=1.02)
+    model_label = 'Composite' if is_composite else 'GP'
+    plt.suptitle(f'{model_label} Model Uncertainty Analysis', fontsize=14, fontweight='bold', y=1.02)
     plt.tight_layout()
     
     output_path = os.path.join(output_dir, 'uncertainty_analysis.png')
@@ -654,6 +741,70 @@ def plot_uncertainty_analysis(gp: GaussianProcessRegressor, scaler: StandardScal
     plt.close()
     
     print(f"  ✓ Uncertainty analysis saved: {output_path}")
+
+
+# =============================================================================
+# 7. FEATURE IMPORTANCE (PERMUTATION-BASED)
+# =============================================================================
+
+def compute_feature_importance(model, scaler, feature_names: List[str],
+                               X: np.ndarray, y: np.ndarray,
+                               is_composite: bool = False,
+                               weights: np.ndarray = None) -> pd.DataFrame:
+    """
+    Compute feature importance using permutation importance.
+    
+    Uses weighted R² when weights are provided, so wet lab data points
+    count proportionally more in the importance calculation.
+    
+    Args:
+        model: Trained model (GaussianProcessRegressor or CompositeGP)
+        scaler: Feature scaler (unused if is_composite)
+        feature_names: List of feature names
+        X: Unscaled feature matrix
+        y: Target values
+        is_composite: Whether model is a CompositeGP
+        weights: Per-sample weights (e.g. 1.0 for literature, 50.0 for wet lab)
+    
+    Returns:
+        DataFrame with feature importance scores
+    """
+    if weights is None:
+        weights = np.ones(len(y))
+    
+    def weighted_r2(y_true, y_pred, w):
+        """Compute weighted R² score."""
+        ss_res = np.sum(w * (y_true - y_pred) ** 2)
+        ss_tot = np.sum(w * (y_true - np.average(y_true, weights=w)) ** 2)
+        return 1 - (ss_res / ss_tot)
+    
+    # Baseline predictions
+    y_pred_baseline = predict_model(model, scaler, X, is_composite)
+    baseline_score = weighted_r2(y, y_pred_baseline, weights)
+    
+    importance_scores = []
+    
+    for i, name in enumerate(feature_names):
+        # Permute feature (on unscaled data)
+        X_permuted = X.copy()
+        np.random.seed(42)
+        X_permuted[:, i] = np.random.permutation(X_permuted[:, i])
+        
+        # Predictions with permuted feature
+        y_pred_perm = predict_model(model, scaler, X_permuted, is_composite)
+        permuted_score = weighted_r2(y, y_pred_perm, weights)
+        
+        importance = baseline_score - permuted_score
+        
+        importance_scores.append({
+            'feature': name.replace('_M', '').replace('_pct', ''),
+            'importance': importance,
+        })
+    
+    importance_df = pd.DataFrame(importance_scores)
+    importance_df = importance_df.sort_values('importance', ascending=False)
+    
+    return importance_df
 
 
 # =============================================================================
@@ -665,8 +816,8 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(script_dir))
     
-    output_dir = os.path.join(project_root, 'results', 'explainability')
-    os.makedirs(output_dir, exist_ok=True)
+    base_output_dir = os.path.join(project_root, 'results', 'explainability')
+    os.makedirs(base_output_dir, exist_ok=True)
     
     print("=" * 80)
     print("CryoMN Model Explainability Analysis")
@@ -674,44 +825,68 @@ def main():
     
     # Load model and data
     print("\n📊 Loading model and data...")
-    gp, scaler, feature_names, df, importance_df = load_model_and_data(project_root)
+    gp, scaler, feature_names, df, importance_df, is_composite = load_model_and_data(project_root)
     
     X = df[feature_names].values
     y = df['viability_percent'].values
+    weights = df['weight'].values if 'weight' in df.columns else np.ones(len(y))
     
     print(f"  Model loaded with {len(feature_names)} features")
     print(f"  Data loaded with {len(df)} formulations")
+    if is_composite and 'source' in df.columns:
+        n_lit = (df['source'] == 'literature').sum()
+        n_wet = (df['source'] == 'wetlab').sum()
+        wet_weight = df.loc[df['source'] == 'wetlab', 'weight'].iloc[0] if n_wet > 0 else 'N/A'
+        print(f"  Sources: {n_lit} literature + {n_wet} wet lab (weight={wet_weight})")
+    
+    # Determine output directory
+    if is_composite:
+        output_dir = os.path.join(base_output_dir, 'iteration')
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"\n  Composite model detected → saving to: {output_dir}")
+    else:
+        output_dir = base_output_dir
     
     config = ExplainabilityConfig()
+    
+    # Recompute feature importance for the active model
+    print("\n0️⃣  Computing Feature Importance (permutation-based)")
+    importance_df = compute_feature_importance(
+        gp, scaler, feature_names, X, y, is_composite, weights
+    )
+    # Save to the output directory
+    importance_csv_path = os.path.join(output_dir, 'feature_importance.csv')
+    importance_df.to_csv(importance_csv_path, index=False)
+    print(f"  ✓ Feature importance saved: {importance_csv_path}")
     
     # Generate all visualizations
     print("\n📈 Generating visualizations...\n")
     
     # 1. Feature Importance
-    print("1️⃣ Feature Importance Bar Chart")
+    print("1️⃣  Feature Importance Bar Chart")
     plot_feature_importance(importance_df, output_dir, config)
     
     # 2. SHAP Analysis
-    print("\n2️⃣ SHAP Values Analysis")
-    shap_values, X_explain = compute_shap_values(gp, scaler, X, feature_names, config)
+    print("\n2️⃣  SHAP Values Analysis")
+    shap_values, X_explain = compute_shap_values(gp, scaler, X, feature_names, is_composite, config)
     if shap_values is not None:
         plot_shap_summary(shap_values, X_explain, feature_names, output_dir, config)
     
     # 3. Partial Dependence Plots
-    print("\n3️⃣ Partial Dependence Plots")
-    plot_partial_dependence(gp, scaler, X, feature_names, importance_df, output_dir, config)
+    print("\n3️⃣  Partial Dependence Plots")
+    plot_partial_dependence(gp, scaler, X, feature_names, importance_df, output_dir, is_composite, config)
     
     # 4. Interaction Contours
-    print("\n4️⃣ 2D Interaction Contour Plots")
-    plot_interaction_contours(gp, scaler, X, feature_names, importance_df, output_dir, config)
+    print("\n4️⃣  2D Interaction Contour Plots")
+    plot_interaction_contours(gp, scaler, X, feature_names, importance_df, output_dir, is_composite, config)
     
     # 5. Acquisition Landscape
-    print("\n5️⃣ Acquisition Function Landscape")
-    plot_acquisition_landscape(gp, scaler, X, y, feature_names, importance_df, output_dir, config)
+    print("\n5️⃣  Acquisition Function Landscape")
+    plot_acquisition_landscape(gp, scaler, X, y, feature_names, importance_df, output_dir, is_composite, config)
     
     # 6. Uncertainty Analysis
-    print("\n6️⃣ GP Uncertainty Visualization")
-    plot_uncertainty_analysis(gp, scaler, X, y, feature_names, output_dir, config)
+    print("\n6️⃣  GP Uncertainty Visualization")
+    plot_uncertainty_analysis(gp, scaler, X, y, feature_names, output_dir, is_composite, config)
     
     # Summary
     print("\n" + "=" * 80)
@@ -720,7 +895,7 @@ def main():
     print(f"\nAll visualizations saved to: {output_dir}")
     print("\nGenerated files:")
     for f in sorted(os.listdir(output_dir)):
-        if f.endswith('.png'):
+        if f.endswith('.png') or f.endswith('.csv'):
             print(f"  • {f}")
 
 
