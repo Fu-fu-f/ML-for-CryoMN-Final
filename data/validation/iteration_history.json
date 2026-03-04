@@ -4,11 +4,11 @@
       "iteration": 1,
       "method": "prior_mean_correction",
       "n_validation_samples": 18,
-      "validation_rmse": 2.4286067415010617,
+      "validation_rmse": 0.5489319847682069,
       "literature_rmse": 38.46972696321922,
-      "improvement": 36.04112022171816,
-      "noise_ratio": 10.0,
-      "timestamp": "2026-02-27T16:27:16.791553"
+      "improvement": 37.92079497845101,
+      "noise_ratio": 50.0,
+      "timestamp": "2026-03-02T13:15:01.112964"
     }
   ]
 }

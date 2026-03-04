@@ -129,7 +129,7 @@ Uses literature GP as prior mean, wet lab GP models corrections.
 **Configuration:**
 ```python
 ALPHA_LITERATURE = 1.0   # Higher noise = less trusted
-ALPHA_WETLAB = 0.1       # Lower noise = more trusted
+ALPHA_WETLAB = 0.02      # Lower noise = more trusted  (50x trust ratio)
 ```
 
 **Pros:**
@@ -143,7 +143,10 @@ ALPHA_WETLAB = 0.1       # Lower noise = more trusted
 
 - Updated model in `models/iteration_N_<method>/`
 - Main model updated in `models/`
+- **Evaluation data** in `data/processed/evaluation_data.csv` (literature + wet lab with weights)
 - Iteration history in `data/validation/iteration_history.json`
+
+The evaluation data CSV includes a `weight` column (1.0 for literature, 50.0 for wet lab) and a `source` column. This file is used by the explainability script to compute weighted feature importance.
 
 ## Iteration Tracking
 

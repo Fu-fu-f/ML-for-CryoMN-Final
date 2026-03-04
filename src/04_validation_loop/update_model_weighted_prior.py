@@ -41,10 +41,10 @@ from sklearn.preprocessing import StandardScaler
 # Noise levels for tiered uncertainty
 # Lower noise = higher trust in data source
 ALPHA_LITERATURE = 1.0     # Higher noise: literature data has more uncertainty
-ALPHA_WETLAB = 0.1         # Lower noise: wet lab data is more trusted
+ALPHA_WETLAB = 0.02        # Lower noise: wet lab data is more trusted
 
 # Noise ratio in the combined approach
-NOISE_RATIO = ALPHA_LITERATURE / ALPHA_WETLAB
+NOISE_RATIO = ALPHA_LITERATURE / ALPHA_WETLAB  # 50x
 
 
 # =============================================================================
@@ -416,6 +416,54 @@ def save_iteration(project_dir: str, iteration_data: Dict):
 
 
 # =============================================================================
+# EVALUATION DATA EXPORT
+# =============================================================================
+
+def save_evaluation_data(project_root: str, feature_names: List[str],
+                         X_orig: np.ndarray, y_orig: np.ndarray,
+                         X_val: np.ndarray, y_val: np.ndarray,
+                         noise_ratio: float):
+    """
+    Save combined evaluation data (literature + wet lab) with weights.
+    
+    This file is used by the explainability script to compute
+    weighted feature importance that reflects both data sources.
+    
+    Args:
+        project_root: Project root directory
+        feature_names: List of feature names
+        X_orig: Literature feature matrix
+        y_orig: Literature target values
+        X_val: Wet lab feature matrix
+        y_val: Wet lab target values
+        noise_ratio: Trust multiplier for wet lab data
+    """
+    # Build literature rows
+    df_lit = pd.DataFrame(X_orig, columns=feature_names)
+    df_lit['viability_percent'] = y_orig
+    df_lit['weight'] = 1.0
+    df_lit['source'] = 'literature'
+    
+    # Build wet lab rows
+    df_wet = pd.DataFrame(X_val, columns=feature_names)
+    df_wet['viability_percent'] = y_val
+    df_wet['weight'] = noise_ratio
+    df_wet['source'] = 'wetlab'
+    
+    # Concatenate
+    df_eval = pd.concat([df_lit, df_wet], ignore_index=True)
+    
+    # Save
+    eval_path = os.path.join(project_root, 'data', 'processed', 'evaluation_data.csv')
+    df_eval.to_csv(eval_path, index=False)
+    
+    print(f"\n📊 Evaluation data saved: {eval_path}")
+    print(f"  Literature rows: {len(df_lit)} (weight=1.0)")
+    print(f"  Wet lab rows:    {len(df_wet)} (weight={noise_ratio:.0f})")
+    print(f"  Total:           {len(df_eval)}")
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -507,6 +555,14 @@ def main():
         dst = os.path.join(model_dir, filename)
         if os.path.exists(src):
             shutil.copy(src, dst)
+    
+    # Save evaluation data for explainability
+    save_evaluation_data(
+        project_root, feature_names,
+        X_orig, y_orig,
+        X_val, y_val,
+        NOISE_RATIO
+    )
     
     # Save iteration history
     save_iteration(project_root, {

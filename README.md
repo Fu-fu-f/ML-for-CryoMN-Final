@@ -42,9 +42,9 @@ python src/03_optimization/optimize_formulation.py      # Fast random sampling
 python src/05_bo_optimization/bo_optimizer.py          # Proper BO with DE
 
 # 4. Integrate wet lab results (after experiments)
-python src/04_validation_loop/update_model.py
+python src/04_validation_loop/update_model_weighted_prior.py
 
-# 5. Explain model predictions
+# 5. Explain model predictions (auto-detects composite model)
 python src/06_explainability/explainability.py
 ```
 
@@ -103,10 +103,10 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 ```
 ├── data/
 │   ├── raw/                    # Original literature data
-│   ├── processed/              # Parsed formulations (~198 rows)
+│   ├── processed/              # Parsed formulations + evaluation data (with weights)
 │   └── validation/             # Wet lab results template
-├── models/                     # Trained GP model + scaler
-├── results/                    # Optimized candidate formulations
+├── models/                     # GP model, composite model, scalers
+├── results/                    # Optimized candidates + explainability graphs
 └── src/
     ├── 01_data_parsing/        # Parse CSV, normalize units, merge synonyms
     ├── 02_model_training/      # Train GP regression model (Matérn kernel)
@@ -123,7 +123,7 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 | `01_data_parsing` | Data Parsing & Normalization | Preparing clean, structured training data from raw literature |
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, ranks by highest predicted mean | Quick generation, when speed matters |
-| `04_validation_loop` | Data merging & Model Retraining | Closing the active learning loop with wet lab feedback |
+| `04_validation_loop` | Prior mean + correction (50× wet lab trust) | Closing the active learning loop with wet lab feedback |
 | `05_bo_optimization` | Differential Evolution, maximizes Expected Improvement | Most informative experiments, exploration-exploitation balance |
 | `06_explainability` | SHAP, PDPs, Interaction Contours | Understanding model drivers and ensuring trust |
 

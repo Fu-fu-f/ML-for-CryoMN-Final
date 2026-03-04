@@ -1,105 +1,105 @@
 ================================================================================
 CryoMN Optimized Formulation Candidates
-Generated: 2026-02-27 16:27
+Generated: 2026-03-02 16:20
 ================================================================================
 
 Rank 1: 143.1mM ectoin + 1.28M ethylene_glycol
-  Predicted viability: 69.7% ± 14.7%
+  Predicted viability: 72.1% ± 13.8%
   DMSO: 0.0%
   Ingredients: 2
 
 Rank 2: 161.2mM ectoin + 1.05M ethylene_glycol
-  Predicted viability: 68.4% ± 14.8%
+  Predicted viability: 69.7% ± 13.9%
   DMSO: 0.0%
   Ingredients: 2
 
 Rank 3: 34.7% fbs + 2.35M glycerol + 6.0% hsa
-  Predicted viability: 60.6% ± 14.5%
+  Predicted viability: 62.8% ± 13.2%
   DMSO: 0.0%
   Ingredients: 3
 
 Rank 4: 975.7mM ethylene_glycol + 8.5% hsa + 67.6mM proline
-  Predicted viability: 51.6% ± 14.0%
+  Predicted viability: 52.9% ± 12.6%
   DMSO: 0.0%
   Ingredients: 3
 
 Rank 5: 40.6mM dmso + 159.8mM ectoin
-  Predicted viability: 46.6% ± 22.9%
+  Predicted viability: 46.9% ± 23.2%
   DMSO: 0.3%
   Ingredients: 2
 
 Rank 6: 5.8% hsa + 55.2mM proline
-  Predicted viability: 41.0% ± 20.3%
+  Predicted viability: 42.2% ± 20.7%
   DMSO: 0.0%
   Ingredients: 2
 
 Rank 7: 134.7mM ectoin + 936.1mM glucose + 232.8mM trehalose
-  Predicted viability: 38.9% ± 24.6%
+  Predicted viability: 39.1% ± 25.1%
   DMSO: 0.0%
   Ingredients: 3
 
 Rank 8: 1.73M ethylene_glycol + 7.3% hsa
-  Predicted viability: 38.5% ± 12.9%
+  Predicted viability: 38.2% ± 11.4%
   DMSO: 0.0%
   Ingredients: 2
 
 Rank 9: 12.8mM dmso + 2.4% hsa + 1.1% methylcellulose + 460.6mM sucrose + 97.3mM trehalose
-  Predicted viability: 37.3% ± 24.2%
+  Predicted viability: 37.8% ± 24.7%
   DMSO: 0.1%
   Ingredients: 5
 
 Rank 10: 332.9mM betaine + 1.71M glucose + 28.3mM proline
-  Predicted viability: 37.2% ± 24.4%
+  Predicted viability: 37.8% ± 25.0%
   DMSO: 0.0%
   Ingredients: 3
 
-Rank 11: 5.2mM glucose + 0.8% hsa + 524.0mM sucrose
-  Predicted viability: 36.9% ± 24.5%
+Rank 11: 8.8% hsa + 167.3mM propylene_glycol + 15.8mM sucrose
+  Predicted viability: 37.7% ± 21.2%
   DMSO: 0.0%
   Ingredients: 3
 
-Rank 12: 8.8% hsa + 167.3mM propylene_glycol + 15.8mM sucrose
-  Predicted viability: 36.6% ± 21.0%
+Rank 12: 5.2mM glucose + 0.8% hsa + 524.0mM sucrose
+  Predicted viability: 37.3% ± 25.1%
   DMSO: 0.0%
   Ingredients: 3
 
-Rank 13: 304.7mM ectoin + 1.55M ethylene_glycol
-  Predicted viability: 36.5% ± 24.9%
+Rank 13: 1.31M creatine + 2.2% dextran + 120.1mM ectoin + 19.3mM proline
+  Predicted viability: 36.7% ± 25.5%
   DMSO: 0.0%
-  Ingredients: 2
+  Ingredients: 4
 
 Rank 14: 3.9% hsa + 1.15M propylene_glycol
-  Predicted viability: 36.5% ± 23.4%
+  Predicted viability: 36.7% ± 24.0%
   DMSO: 0.0%
   Ingredients: 2
 
-Rank 15: 1.31M creatine + 2.2% dextran + 120.1mM ectoin + 19.3mM proline
-  Predicted viability: 36.4% ± 24.9%
+Rank 15: 304.7mM ectoin + 1.55M ethylene_glycol
+  Predicted viability: 36.6% ± 25.5%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 16: 1.98M glycerol + 380.4mM sucrose
+  Predicted viability: 36.3% ± 25.2%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 17: 73.9% fbs + 1.63M glycerol + 1.97M propylene_glycol + 717.3mM raffinose
+  Predicted viability: 36.2% ± 25.4%
   DMSO: 0.0%
   Ingredients: 4
 
-Rank 16: 88.5mM betaine + 75.6% human_serum
-  Predicted viability: 36.1% ± 24.8%
+Rank 18: 88.5mM betaine + 75.6% human_serum
+  Predicted viability: 36.1% ± 25.4%
   DMSO: 0.0%
   Ingredients: 2
-
-Rank 17: 1.98M glycerol + 380.4mM sucrose
-  Predicted viability: 36.0% ± 24.7%
-  DMSO: 0.0%
-  Ingredients: 2
-
-Rank 18: 73.9% fbs + 1.63M glycerol + 1.97M propylene_glycol + 717.3mM raffinose
-  Predicted viability: 35.9% ± 24.8%
-  DMSO: 0.0%
-  Ingredients: 4
 
 Rank 19: 110.9mM ethylene_glycol + 3.2% hsa + 278.7mM raffinose
-  Predicted viability: 35.2% ± 23.7%
+  Predicted viability: 35.2% ± 24.1%
   DMSO: 0.0%
   Ingredients: 3
 
-Rank 20: 2.5% dextran + 758.3mM glycerol
-  Predicted viability: 34.9% ± 24.7%
+Rank 20: 66.3% fbs + 347.6mM sucrose
+  Predicted viability: 35.0% ± 25.5%
   DMSO: 0.0%
   Ingredients: 2
 
