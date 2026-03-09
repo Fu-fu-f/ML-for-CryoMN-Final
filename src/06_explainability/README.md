@@ -13,16 +13,24 @@ python src/06_explainability/explainability.py
 
 ## Input
 
+**Model resolution:**
+- `models/model_metadata.json`
+- `data/validation/iteration_history.json`
+- `models/iteration_*`
+
+`06_explainability` now uses the same iteration-aware resolver as `03_optimization` and `05_bo_optimization`. If the active metadata is missing or inconsistent, it prompts for an iteration number and repairs `models/model_metadata.json` with an explicit overwrite notice.
+
 **Standard GP mode (literature-only):**
 - `models/gp_model.pkl`, `models/scaler.pkl`
 - `data/processed/parsed_formulations.csv`
 
 **Composite GP mode (after running validation loop):**
-- `models/composite_model.pkl` (used when `models/model_metadata.json` marks the active model as composite)
+- `models/composite_model.pkl` (used when the resolved active iteration is composite)
 - `data/processed/evaluation_data.csv` (literature + wet lab rows with weights)
 
+If a composite model is active and `evaluation_data.csv` is missing, the script now stops instead of falling back to literature-only data.
+
 Common:
-- `models/model_metadata.json`
 - `models/feature_importance.csv` (optional seed file; regenerated at runtime if missing)
 
 ## Output

@@ -19,7 +19,7 @@ python src/03_optimization/optimize_formulation.py
 - **Iteration artifacts**: `models/iteration_*`
 - **Data**: `data/processed/parsed_formulations.csv`
 
-The script now validates the active model against both root metadata and the recorded iteration history:
+The script now uses the shared active-model resolver that is also used by `05_bo_optimization` and `06_explainability`. It validates the active model against both root metadata and the recorded iteration history:
 - If the latest recorded iteration and `models/model_metadata.json` agree, `03` loads that iteration's artifacts directly.
 - If metadata is missing, malformed, or points at the wrong iteration, `03` prompts for an iteration number.
 - If you choose a valid iteration during conflict recovery, `03` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.

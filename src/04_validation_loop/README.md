@@ -132,8 +132,9 @@ Downstream scripts use the active metadata in different ways:
 
 - `update_model.py` and `update_model_weighted_simple.py` mark the active model as **standard GP**
 - `update_model_weighted_prior.py` marks the active model as **composite GP**
-- `03_optimization` validates metadata against iteration history and does **not** fall back automatically across model types
-- `05_bo_optimization` and `06_explainability` still read the active root metadata directly; they have not been hardened with the same iteration-recovery flow yet
+- `03_optimization`, `05_bo_optimization`, and `06_explainability` now share the same iteration-aware resolver
+- the shared resolver validates metadata against iteration history and does **not** fall back automatically across model types
+- `06_explainability` also requires `data/processed/evaluation_data.csv` when a composite model is active
 
 Whenever an update script activates a newly trained iteration by replacing `models/model_metadata.json`, it prints a notice that the active metadata is being overwritten and identifies the target iteration/method.
 

@@ -13,14 +13,15 @@ python src/05_bo_optimization/bo_optimizer.py
 
 ## Input
 
-- **Model**: `models/composite_model.pkl` (preferred) or `models/gp_model.pkl` (fallback)
+- **Model registry**: `models/model_metadata.json` + `data/validation/iteration_history.json`
+- **Iteration artifacts**: `models/iteration_*`
 - **Data**: `data/processed/parsed_formulations.csv`
 
-The script reads `models/model_metadata.json` to decide whether the active model is composite or standard, and prints its selection:
-- `>>> Using COMPOSITE model (literature prior + wet lab correction)` — if `composite_model.pkl` is found. This model is specifically created by running `04_validation_loop/update_model_weighted_prior.py`.
-- `>>> Using STANDARD GP model (literature-only)` — if metadata marks the active model as standard. Stale composite artifacts are ignored automatically.
-
-> **Note**: Unlike `03_optimization`, this script still trusts the active root metadata directly. It does not yet perform the newer iteration-history conflict recovery flow.
+This script now uses the same active-model resolver as `03_optimization`:
+- If the latest recorded iteration and `models/model_metadata.json` agree, `05` loads that iteration's artifacts directly.
+- If metadata is missing, malformed, or points at the wrong iteration, `05` prompts for an iteration number.
+- If you choose a valid iteration during conflict recovery, `05` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.
+- If metadata says the model is composite but the composite artifacts are missing, the script stops. It does **not** fall back to the standard GP automatically.
 
 ## Output
 
@@ -32,16 +33,17 @@ The script reads `models/model_metadata.json` to decide whether the active model
 
 ### Algorithm
 
-1. Load the active model selected by `models/model_metadata.json`
-2. Compute `y_best` from model predictions on observed data
-3. For each candidate (sequentially):
+1. Validate the active iteration using `models/model_metadata.json`, `iteration_history.json`, and `models/iteration_*`
+2. Load the exact artifacts for the selected iteration
+3. Compute `y_best` from model predictions on observed data
+4. For each candidate (sequentially):
    - Run Differential Evolution to find `x* = argmax(UCB(x) - penalty(x))`
    - DE explores the entire search space globally
    - **Batch diversity**: Gaussian penalty repels DE away from previously found candidates
    - Constraint violations (DMSO, ingredient count) are penalized
-4. Recalculate pure UCB (without penalty) for accurate reporting
-5. Rank candidates by predicted viability
-6. Export with predictions and uncertainty estimates
+5. Recalculate pure UCB (without penalty) for accurate reporting
+6. Rank candidates by predicted viability
+7. Export with predictions and uncertainty estimates
 
 ### Batch Diversity (Local Penalization)
 

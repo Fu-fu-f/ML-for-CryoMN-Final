@@ -51,9 +51,10 @@ python src/06_explainability/explainability.py
 ## Active Model and Iterations
 
 - `src/04_validation_loop/*` saves each retrained checkpoint under `models/iteration_*`, updates `data/validation/iteration_history.json`, and then replaces the active root metadata in `models/model_metadata.json` with an explicit overwrite notice.
-- `src/03_optimization/optimize_formulation.py` is now iteration-aware: it validates the root metadata against iteration history and the saved iteration directories before loading a model.
-- If root metadata is missing or inconsistent, `03` prompts for an iteration number, rejects nonsensical choices, and repairs `models/model_metadata.json` only after telling you it is overwriting the metadata.
-- Composite iterations are strict: if metadata says composite, `03` will not fall back to a standard GP automatically.
+- `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_explainability/explainability.py` now share the same iteration-aware resolver.
+- If root metadata is missing or inconsistent, these entry points prompt for an iteration number, reject nonsensical choices, and repair `models/model_metadata.json` only after telling you it is overwriting the metadata.
+- Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
+- `06_explainability` is also strict about composite data: if a composite model is active, `data/processed/evaluation_data.csv` must exist.
 
 ## Results
 
@@ -131,8 +132,8 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, iteration-aware model loading | Quick generation, metadata repair when active model state is inconsistent |
 | `04_validation_loop` | Three update strategies + iteration checkpointing | Closing the active learning loop with wet lab feedback |
-| `05_bo_optimization` | Differential Evolution, maximizes UCB by default | Most informative experiments, exploration-exploitation balance |
-| `06_explainability` | SHAP, PDPs, Interaction Contours | Understanding model drivers and ensuring trust |
+| `05_bo_optimization` | Differential Evolution, shared iteration-aware model loading | Most informative experiments, exploration-exploitation balance |
+| `06_explainability` | SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Understanding model drivers and ensuring trust |
 
 ## Key Features
 

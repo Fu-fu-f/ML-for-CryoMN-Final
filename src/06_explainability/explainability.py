@@ -18,8 +18,6 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-import json
-import pickle
 import tempfile
 import warnings
 from typing import Tuple, Dict, List, Optional
@@ -52,7 +50,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop')
 if _validation_dir not in sys.path:
     sys.path.insert(0, _validation_dir)
-from update_model_weighted_prior import CompositeGP  # noqa: E402
+from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -127,48 +125,23 @@ def load_model_and_data(project_root: str):
         Tuple of (model, scaler, feature_names, data_df, importance_df, is_composite)
     """
     model_dir = os.path.join(project_root, 'models')
-    
-    metadata_path = os.path.join(model_dir, 'model_metadata.json')
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
-
+    resolution = resolve_active_model(project_root)
+    gp = resolution.gp
+    scaler = resolution.scaler
+    metadata = resolution.metadata
     feature_names = metadata['feature_names']
-    composite_path = os.path.join(model_dir, 'composite_model.pkl')
-    wants_composite = metadata.get('is_composite_model', False)
-    is_composite = False
+    is_composite = resolution.is_composite
 
-    if wants_composite and os.path.exists(composite_path):
-        with open(composite_path, 'rb') as f:
-            gp = pickle.load(f)
-        is_composite = True
-        scaler = None  # Composite model handles scaling internally
-        print("  >>> Using COMPOSITE model (literature prior + wet lab correction)")
-        
-        # Load evaluation data (literature + wet lab with weights)
+    if is_composite:
         eval_path = os.path.join(project_root, 'data', 'processed', 'evaluation_data.csv')
-        if os.path.exists(eval_path):
-            df = pd.read_csv(eval_path)
-            print(f"  >>> Loaded evaluation data with weights ({len(df)} rows)")
-        else:
-            # Fallback to literature-only data
-            data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
-            df = pd.read_csv(data_path)
-            df = df[df['viability_percent'] <= 100].copy()
-            df['weight'] = 1.0
-            df['source'] = 'literature'
-            print("  ⚠ evaluation_data.csv not found, using parsed_formulations.csv")
+        if not os.path.exists(eval_path):
+            raise ModelResolutionError(
+                "Composite model is active, but data/processed/evaluation_data.csv is missing. "
+                "Explainability will not fall back to literature-only data."
+            )
+        df = pd.read_csv(eval_path)
+        print(f"  >>> Loaded evaluation data with weights ({len(df)} rows)")
     else:
-        if wants_composite and not os.path.exists(composite_path):
-            print("  >>> Composite model metadata found, but composite_model.pkl is missing.")
-            print("  >>> Falling back to STANDARD GP model (literature-only artifacts).")
-        elif os.path.exists(composite_path):
-            print("  >>> Ignoring stale COMPOSITE artifact because metadata marks the active model as standard GP.")
-        with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
-            gp = pickle.load(f)
-        with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
-            scaler = pickle.load(f)
-        print("  >>> Using STANDARD GP model (literature-only)")
-        
         data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
         df = pd.read_csv(data_path)
         df = df[df['viability_percent'] <= 100].copy()
@@ -867,7 +840,11 @@ def main():
     
     # Load model and data
     print("\n📊 Loading model and data...")
-    gp, scaler, feature_names, df, importance_df, is_composite = load_model_and_data(project_root)
+    try:
+        gp, scaler, feature_names, df, importance_df, is_composite = load_model_and_data(project_root)
+    except ModelResolutionError as exc:
+        print(f"ERROR: {exc}")
+        return
     
     X = df[feature_names].values
     y = df['viability_percent'].values

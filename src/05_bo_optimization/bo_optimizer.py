@@ -13,8 +13,6 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-import json
-import pickle
 from typing import Tuple, Dict, List, Optional
 from datetime import datetime
 from dataclasses import dataclass
@@ -29,40 +27,12 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop')
 if _validation_dir not in sys.path:
     sys.path.insert(0, _validation_dir)
-from update_model_weighted_prior import CompositeGP  # noqa: E402
+from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
 
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-
-def load_active_model(model_dir: str):
-    """Load the model selected by metadata, ignoring stale artifacts."""
-    metadata_path = os.path.join(model_dir, 'model_metadata.json')
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
-
-    composite_path = os.path.join(model_dir, 'composite_model.pkl')
-    wants_composite = metadata.get('is_composite_model', False)
-
-    if wants_composite and os.path.exists(composite_path):
-        with open(composite_path, 'rb') as f:
-            gp = pickle.load(f)
-        print(">>> Using COMPOSITE model (literature prior + wet lab correction)")
-        return gp, None, metadata, True
-
-    if wants_composite and not os.path.exists(composite_path):
-        print(">>> Composite model metadata found, but composite_model.pkl is missing.")
-        print(">>> Falling back to STANDARD GP model (literature-only artifacts).")
-    elif os.path.exists(composite_path):
-        print(">>> Ignoring stale COMPOSITE artifact because metadata marks the active model as standard GP.")
-
-    with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
-        gp = pickle.load(f)
-    with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
-        scaler = pickle.load(f)
-    print(">>> Using STANDARD GP model (literature-only)")
-    return gp, scaler, metadata, False
 
 @dataclass
 class BOConfig:
@@ -529,7 +499,15 @@ def main():
     print("=" * 80)
     
     print("\nLoading trained model...")
-    gp, scaler, metadata, is_composite = load_active_model(model_dir)
+    try:
+        resolution = resolve_active_model(project_root)
+    except ModelResolutionError as exc:
+        print(f"ERROR: {exc}")
+        return
+    gp = resolution.gp
+    scaler = resolution.scaler
+    metadata = resolution.metadata
+    is_composite = resolution.is_composite
     feature_names = metadata['feature_names']
     print(f"Model loaded with {len(feature_names)} features")
     
