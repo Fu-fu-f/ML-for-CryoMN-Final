@@ -27,9 +27,14 @@ The script now uses the shared active-model resolver that is also used by `05_bo
 
 ## Output
 
-- `results/candidates_general.csv` - Candidates with ≤5% DMSO
-- `results/candidates_dmso_free.csv` - Low-DMSO candidates (`<0.5%` DMSO)
-- `*_summary.txt` - Human-readable summaries
+- `results/candidates_general_<iteration_tag>.csv` - Candidates with ≤5% DMSO
+- `results/candidates_dmso_free_<iteration_tag>.csv` - Low-DMSO candidates (`<0.5%` DMSO)
+- `*_summary.txt` - Human-readable summaries saved alongside the CSVs
+
+`<iteration_tag>` comes from the resolved active model identity, for example:
+- `iteration_1`
+- `iteration_3_weighted_simple`
+- `iteration_5_prior_mean`
 
 ## Algorithm
 

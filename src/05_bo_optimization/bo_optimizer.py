@@ -480,6 +480,20 @@ def export_candidates(candidates_df: pd.DataFrame, feature_names: List[str],
     print(f"Summary saved to: {summary_path}")
 
 
+def build_iteration_output_path(output_dir: str, base_filename: str,
+                                iteration_dir: Optional[str],
+                                iteration: Optional[int]) -> str:
+    """Append the active iteration identity to exported result filenames."""
+    stem, ext = os.path.splitext(base_filename)
+    if iteration_dir:
+        suffix = iteration_dir
+    elif iteration is not None:
+        suffix = f"iteration_{iteration}"
+    else:
+        suffix = "active_model"
+    return os.path.join(output_dir, f"{stem}_{suffix}{ext}")
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -510,6 +524,10 @@ def main():
     is_composite = resolution.is_composite
     feature_names = metadata['feature_names']
     print(f"Model loaded with {len(feature_names)} features")
+    if resolution.iteration_dir:
+        print(f"Resolved active iteration: {resolution.iteration_dir}")
+    elif resolution.iteration is not None:
+        print(f"Resolved active iteration: iteration_{resolution.iteration}")
     
     # Load data
     print(f"\nLoading data from: {data_path}")
@@ -548,13 +566,23 @@ def main():
     export_candidates(
         general_candidates,
         feature_names,
-        os.path.join(output_dir, 'bo_candidates_general.csv')
+        build_iteration_output_path(
+            output_dir,
+            'bo_candidates_general.csv',
+            resolution.iteration_dir,
+            resolution.iteration,
+        )
     )
     
     export_candidates(
         dmso_free_candidates,
         feature_names,
-        os.path.join(output_dir, 'bo_candidates_dmso_free.csv')
+        build_iteration_output_path(
+            output_dir,
+            'bo_candidates_dmso_free.csv',
+            resolution.iteration_dir,
+            resolution.iteration,
+        )
     )
     
     # Print top candidates
