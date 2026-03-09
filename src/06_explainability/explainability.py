@@ -122,7 +122,7 @@ def load_model_and_data(project_root: str):
     both literature and wet lab rows with weights) instead of parsed_formulations.csv.
     
     Returns:
-        Tuple of (model, scaler, feature_names, data_df, importance_df, is_composite)
+        Tuple of (model, scaler, feature_names, data_df, importance_df, is_composite, resolution)
     """
     model_dir = os.path.join(project_root, 'models')
     resolution = resolve_active_model(project_root)
@@ -157,7 +157,7 @@ def load_model_and_data(project_root: str):
             'importance': np.zeros(len(feature_names)),
         })
     
-    return gp, scaler, feature_names, df, importance_df, is_composite
+    return gp, scaler, feature_names, df, importance_df, is_composite, resolution
 
 
 def clean_feature_name(name: str) -> str:
@@ -206,6 +206,19 @@ def resolve_feature_full_name(clean_name: str, feature_names: List[str]) -> str:
     if idx >= 0:
         return feature_names[idx]
     return clean_name
+
+
+def build_explainability_output_dir(base_output_dir: str,
+                                    iteration_dir: Optional[str],
+                                    iteration: Optional[int]) -> str:
+    """Build an iteration-specific output directory for explainability artifacts."""
+    if iteration_dir:
+        suffix = iteration_dir
+    elif iteration is not None:
+        suffix = f'iteration_{iteration}'
+    else:
+        suffix = 'active_model'
+    return os.path.join(base_output_dir, suffix)
 
 
 def predict_model(model, scaler, X_raw: np.ndarray, is_composite: bool,
@@ -841,7 +854,7 @@ def main():
     # Load model and data
     print("\n📊 Loading model and data...")
     try:
-        gp, scaler, feature_names, df, importance_df, is_composite = load_model_and_data(project_root)
+        gp, scaler, feature_names, df, importance_df, is_composite, resolution = load_model_and_data(project_root)
     except ModelResolutionError as exc:
         print(f"ERROR: {exc}")
         return
@@ -852,19 +865,23 @@ def main():
     
     print(f"  Model loaded with {len(feature_names)} features")
     print(f"  Data loaded with {len(df)} formulations")
+    if resolution.iteration_dir:
+        print(f"  Resolved active iteration: {resolution.iteration_dir}")
+    elif resolution.iteration is not None:
+        print(f"  Resolved active iteration: iteration_{resolution.iteration}")
     if is_composite and 'source' in df.columns:
         n_lit = (df['source'] == 'literature').sum()
         n_wet = (df['source'] == 'wetlab').sum()
         wet_weight = df.loc[df['source'] == 'wetlab', 'weight'].iloc[0] if n_wet > 0 else 'N/A'
         print(f"  Sources: {n_lit} literature + {n_wet} wet lab (weight={wet_weight})")
     
-    # Determine output directory
-    if is_composite:
-        output_dir = os.path.join(base_output_dir, 'iteration')
-        os.makedirs(output_dir, exist_ok=True)
-        print(f"\n  Composite model detected → saving to: {output_dir}")
-    else:
-        output_dir = base_output_dir
+    output_dir = build_explainability_output_dir(
+        base_output_dir,
+        resolution.iteration_dir,
+        resolution.iteration,
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"\n  Saving explainability outputs to: {output_dir}")
     
     config = ExplainabilityConfig()
     

@@ -35,8 +35,16 @@ Common:
 
 ## Output
 
-- **Standard GP**: saves to `results/explainability/`
-- **Composite GP**: saves to `results/explainability/iteration/` (preserves base literature-only graphs)
+Artifacts are now written to an iteration-specific directory:
+- `results/explainability/<iteration_tag>/`
+
+`<iteration_tag>` comes from the resolved active model identity, for example:
+- `iteration_1`
+- `iteration_3_weighted_simple`
+- `iteration_5_prior_mean`
+
+If no explicit iteration metadata exists, the fallback directory is:
+- `results/explainability/active_model/`
 
 | File | Description |
 |------|-------------|
