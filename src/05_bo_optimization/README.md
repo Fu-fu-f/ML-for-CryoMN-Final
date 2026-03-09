@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module performs **proper Bayesian optimization** using Differential Evolution (DE) to maximize the Expected Improvement acquisition function. It uses **batch-mode BO with local penalization** to generate diverse candidates, preventing convergence to the same optimum.
+This module performs **proper Bayesian optimization** using Differential Evolution (DE) to maximize the configured acquisition function. By default it uses **Upper Confidence Bound (UCB)** and batch-mode local penalization to generate diverse candidates.
 
 ## Usage
 
@@ -16,23 +16,21 @@ python src/05_bo_optimization/bo_optimizer.py
 - **Model**: `models/composite_model.pkl` (preferred) or `models/gp_model.pkl` (fallback)
 - **Data**: `data/processed/parsed_formulations.csv`
 
-The script prioritizes `composite_model.pkl` if it exists, falling back to `gp_model.pkl`, and prints its selection:
+The script reads `models/model_metadata.json` to decide whether the active model is composite or standard, and prints its selection:
 - `>>> Using COMPOSITE model (literature prior + wet lab correction)` — if `composite_model.pkl` is found. This model is specifically created by running `04_validation_loop/update_model_weighted_prior.py`.
-- `>>> Using STANDARD GP model (literature-only)` — if falling back to `gp_model.pkl`. This occurs before any validation data is added, or if you used the other validation scripts (`update_model.py` or `update_model_weighted_simple.py`) and no composite model exists.
-
-> **Note**: Because the script strictly checks for `composite_model.pkl` first, if you switch from the `prior` method back to the simple concatenation methods, you must manually delete `composite_model.pkl` so the script correctly falls back to your newly updated `gp_model.pkl`.
+- `>>> Using STANDARD GP model (literature-only)` — if metadata marks the active model as standard. Stale composite artifacts are ignored automatically.
 
 ## Output
 
 - `results/bo_candidates_general.csv` - Candidates with ≤5% DMSO
-- `results/bo_candidates_dmso_free.csv` - DMSO-free candidates
+- `results/bo_candidates_dmso_free.csv` - Low-DMSO candidates (`<0.5%` DMSO)
 - `*_summary.txt` - Human-readable summaries
 
 ## How It Works
 
 ### Algorithm
 
-1. Load trained model (composite if available, otherwise standard GP)
+1. Load the active model selected by `models/model_metadata.json`
 2. Compute `y_best` from model predictions on observed data
 3. For each candidate (sequentially):
    - Run Differential Evolution to find `x* = argmax(UCB(x) - penalty(x))`
@@ -77,7 +75,7 @@ Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will 
 |-----------|---------|-------------|
 | `acquisition` | `ucb` | Acquisition function to use (`ucb` or `ei`) |
 | `max_ingredients` | 10 | Max non-zero ingredients per formulation |
-| `max_dmso_percent` | 5.0 | Max DMSO (general), 0.5% (DMSO-free) |
+| `max_dmso_percent` | 5.0 | Max DMSO (general), 0.5% (low-DMSO) |
 | `n_candidates` | 20 | Number of diverse candidates to generate |
 | `kappa` | 0.5 | UCB exploration parameter |
 | `de_maxiter` | 100 | DE iterations per candidate |
@@ -90,7 +88,7 @@ Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will 
 | Aspect | `03_optimization` | `05_bo_optimization` |
 |--------|-------------------|----------------------|
 | **Search** | Random sampling | Differential Evolution |
-| **Acquisition** | Sorts by mean only | Maximizes UCB/EI |
+| **Acquisition** | Sorts by mean only | Maximizes UCB by default (EI optional) |
 | **Exploration** | Pure exploitation | Balanced |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
 | **Speed** | Fast (~seconds) | Slower (~minutes) |

@@ -55,16 +55,16 @@ python src/06_explainability/explainability.py
 | Category | Best Candidate | Predicted Viability |
 |----------|----------------|---------------------|
 | General (≤5% DMSO) | 1.83M EG + 52% FBS + 0.6% HES | 72.4% ± 23.6% |
-| DMSO-free | 2.07M ethylene glycol | 81.6% ± 20.8% |
+| Low-DMSO (<0.5%) | 2.07M ethylene glycol | 81.6% ± 20.8% |
 
-> **Key Finding**: The model predicts high ethylene glycol concentrations (~2M) are highly effective without DMSO.
+> **Key Finding**: The model predicts high ethylene glycol concentrations (~2M) are highly effective at very low or zero DMSO.
 
 ### DE-based BO (`05_bo_optimization`)
 
-| Category | Best Candidate | Expected Improvement |
-|----------|----------------|----------------------|
-| General (≤5% DMSO) | 10-ingredient formulation | EI = 0.842 |
-| DMSO-free | 10-ingredient formulation | EI = 0.840 |
+| Category | Best Candidate | Acquisition Score (UCB default) |
+|----------|----------------|---------------------------------|
+| General (≤5% DMSO) | 10-ingredient formulation | UCB = 0.842 |
+| Low-DMSO (<0.5%) | 10-ingredient formulation | UCB = 0.840 |
 
 > **Note**: DE-based BO prioritizes *informative* experiments (high uncertainty) over highest predicted mean.
 
@@ -84,7 +84,7 @@ SHAP values reveal how each ingredient impacts individual predictions. High DMSO
 
 ### Acquisition Landscape
 
-The Expected Improvement landscape guides the optimizer towards high-value regions:
+The acquisition landscape defaults to **Upper Confidence Bound (UCB)**, highlighting the model's exploitation-exploration tradeoff:
 
 ![Acquisition Landscape](results/explainability/acquisition_landscape.png)
 
@@ -124,7 +124,7 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, ranks by highest predicted mean | Quick generation, when speed matters |
 | `04_validation_loop` | Prior mean + correction (50× wet lab trust) | Closing the active learning loop with wet lab feedback |
-| `05_bo_optimization` | Differential Evolution, maximizes Expected Improvement | Most informative experiments, exploration-exploitation balance |
+| `05_bo_optimization` | Differential Evolution, maximizes UCB by default | Most informative experiments, exploration-exploitation balance |
 | `06_explainability` | SHAP, PDPs, Interaction Contours | Understanding model drivers and ensuring trust |
 
 ## Key Features

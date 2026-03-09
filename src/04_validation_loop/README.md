@@ -67,28 +67,7 @@ python src/04_validation_loop/update_model_weighted_prior.py
 
 ### ⚠️ Before Running Any Update Script
 
-> **These scripts will overwrite the current model in `models/`.** To ensure you can roll back if needed, **always stage and commit your changes before running an update.**
-
-```bash
-# 1. Stage and commit BEFORE updating the model
-cd "/path/to/project"
-git add -A
-git commit -m "pre-update: save state before iteration N"
-
-# 2. Now run the update script
-python src/04_validation_loop/update_model_weighted_prior.py
-```
-
-**To rollback** if the updated model is unsatisfactory:
-
-```bash
-# Undo all changes since the last commit
-git checkout -- models/
-# Remove any new files created by the update
-git clean -fd models/
-# Reset the iteration history
-git checkout -- data/validation/iteration_history.json
-```
+> **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your current state first so you have a clean rollback point.
 
 ## Validation CSV Format
 
@@ -139,19 +118,28 @@ ALPHA_WETLAB = 0.02      # Lower noise = more trusted  (50x trust ratio)
 
 **Output:** Creates a `CompositeGP` model with both components.
 
+## Model Selection Behavior
+
+Downstream scripts (`03_optimization`, `05_bo_optimization`, `06_explainability`) now follow `models/model_metadata.json` when deciding whether the active model is composite or standard. That means:
+
+- `update_model.py` and `update_model_weighted_simple.py` mark the active model as **standard GP**
+- `update_model_weighted_prior.py` marks the active model as **composite GP**
+- stale `composite_model.pkl` files are ignored automatically when metadata says the active model is standard
+
 ## Output
 
 - Updated model in `models/iteration_N_<method>/`
 - Main model updated in `models/`
-- **Evaluation data** in `data/processed/evaluation_data.csv` (literature + wet lab with weights)
+- **Evaluation data** in `data/processed/evaluation_data.csv` (literature + wet lab with weights; created by `update_model_weighted_prior.py`)
 - Iteration history in `data/validation/iteration_history.json`
 
-The evaluation data CSV includes a `weight` column (1.0 for literature, 50.0 for wet lab) and a `source` column. This file is used by the explainability script to compute weighted feature importance.
+The evaluation data CSV includes a `weight` column (1.0 for literature, 50.0 for wet lab) and a `source` column. This file is used by the explainability script to compute weighted feature importance when the prior-mean workflow is active.
 
 ## Iteration Tracking
 
 Each iteration is logged with:
 - Timestamp
 - Number of validation samples
-- Validation RMSE
+- Wet-lab cross-validated RMSE (`validation_rmse`)
+- Wet-lab in-sample RMSE (`wetlab_train_rmse` in model metadata)
 - Weighting method and parameters

@@ -20,6 +20,7 @@ from datetime import datetime
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, RBF, WhiteKernel, ConstantKernel
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -191,30 +192,28 @@ def cross_validate_model(X: np.ndarray, y: np.ndarray, config: Dict = None) -> D
     """
     if config is None:
         config = DEFAULT_CONFIG
-    
-    # Scale features
-    X_scaled, _, _ = scale_features(X)
-    
-    # Create kernel
-    kernel = create_kernel(config)
-    
-    # Create GP
-    gp = GaussianProcessRegressor(
-        kernel=kernel,
-        n_restarts_optimizer=config['n_restarts'],
-        random_state=config['random_state'],
-        alpha=config['alpha'],
-        normalize_y=True,
-    )
+
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('gp', GaussianProcessRegressor(
+            kernel=create_kernel(config),
+            n_restarts_optimizer=config['n_restarts'],
+            random_state=config['random_state'],
+            alpha=config['alpha'],
+            normalize_y=True,
+        )),
+    ])
     
     # Cross-validation
     kfold = KFold(n_splits=config['cv_folds'], shuffle=True, random_state=config['random_state'])
     
-    cv_scores = cross_val_score(gp, X_scaled, y, cv=kfold, scoring='neg_mean_squared_error')
+    cv_scores = cross_val_score(
+        pipeline, X, y, cv=kfold, scoring='neg_mean_squared_error'
+    )
     cv_rmse = np.sqrt(-cv_scores)
     
     # Also compute R² scores
-    r2_scores = cross_val_score(gp, X_scaled, y, cv=kfold, scoring='r2')
+    r2_scores = cross_val_score(pipeline, X, y, cv=kfold, scoring='r2')
     
     results = {
         'cv_rmse_mean': cv_rmse.mean(),
@@ -342,6 +341,7 @@ def save_model(gp: GaussianProcessRegressor, scaler: StandardScaler,
         'trained_at': datetime.now().isoformat(),
         'config': config or DEFAULT_CONFIG,
         'metrics': metrics,
+        'is_composite_model': False,
     }
     
     metadata_path = os.path.join(output_dir, 'model_metadata.json')

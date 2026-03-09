@@ -18,12 +18,12 @@ python src/06_explainability/explainability.py
 - `data/processed/parsed_formulations.csv`
 
 **Composite GP mode (after running validation loop):**
-- `models/composite_model.pkl` (auto-detected if present)
+- `models/composite_model.pkl` (used when `models/model_metadata.json` marks the active model as composite)
 - `data/processed/evaluation_data.csv` (literature + wet lab rows with weights)
 
 Common:
 - `models/model_metadata.json`
-- `models/feature_importance.csv` (from training; recomputed at runtime)
+- `models/feature_importance.csv` (optional seed file; regenerated at runtime if missing)
 
 ## Output
 
@@ -38,13 +38,13 @@ Common:
 | `shap_importance.png` | SHAP-based feature importance ranking |
 | `partial_dependence_plots.png` | PDPs showing how viability changes with each ingredient |
 | `interaction_contours.png` | 2D contour plots of ingredient pair interactions |
-| `acquisition_landscape.png` | EI acquisition function visualization (mean, uncertainty, EI) |
+| `acquisition_landscape.png` | Acquisition visualization (UCB by default; EI configurable) |
 | `uncertainty_analysis.png` | GP uncertainty calibration and distribution analysis |
 
 ## Visualization Details
 
 ### 0. Feature Importance (recomputed)
-Feature importance is always **recomputed at runtime** using permutation importance against the active model and evaluation dataset. When using the composite model, importance uses **weighted R²** where each wet lab data point counts 50× more than each literature data point, matching the model's trust ratio.
+Feature importance is always **recomputed at runtime** using permutation importance against the active model and evaluation dataset. When using the composite model, importance uses **weighted R²** where each wet lab data point counts 50× more than each literature data point, matching the model's trust ratio. If `models/feature_importance.csv` is missing, the script rebuilds it instead of failing.
 
 ### 2. SHAP Analysis
 Uses [SHAP (SHapley Additive exPlanations)](https://shap.readthedocs.io/) to explain individual predictions:
@@ -70,7 +70,7 @@ Visualizes how pairs of top ingredients interact:
 Three-panel visualization for Bayesian optimization insight:
 1. **GP Mean**: Where the model predicts high viability
 2. **GP Uncertainty**: Where the model is uncertain (exploration opportunity)
-3. **Expected Improvement**: Combined exploration-exploitation score
+3. **Acquisition Score**: UCB by default, with EI available as a configuration option
 
 Red star marks the best observed formulation.
 
@@ -134,7 +134,7 @@ CryoMN Model Explainability Analysis
 - Wide confidence interval: High uncertainty in that concentration range
 
 ### Using Acquisition Landscape
-- High EI regions: Most informative next experiments
+- High acquisition-score regions: Most informative next experiments
 - High uncertainty + moderate mean: Exploration opportunities
 - High mean + low uncertainty: Exploitation (known good regions)
 

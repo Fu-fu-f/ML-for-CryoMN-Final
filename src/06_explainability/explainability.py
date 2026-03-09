@@ -20,10 +20,18 @@ import os
 import sys
 import json
 import pickle
+import tempfile
 import warnings
 from typing import Tuple, Dict, List, Optional
 from datetime import datetime
 
+if 'MPLCONFIGDIR' not in os.environ:
+    mpl_config_dir = os.path.join(tempfile.gettempdir(), 'cryomn-mpl')
+    os.makedirs(mpl_config_dir, exist_ok=True)
+    os.environ['MPLCONFIGDIR'] = mpl_config_dir
+
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -91,11 +99,14 @@ class ExplainabilityConfig:
     
     # Acquisition settings
     acquisition_specific_pair = None  # Use top 2 features from importance ranking
+    acquisition_mode = 'ucb'
+    acquisition_kappa = 0.5
+    acquisition_xi = 0.01
     
     # Color settings
     cmap_viability = 'RdYlGn'
     cmap_uncertainty = 'YlOrRd'
-    cmap_ei = 'viridis'
+    cmap_acquisition = 'viridis'
 
 
 # =============================================================================
@@ -106,8 +117,8 @@ def load_model_and_data(project_root: str):
     """
     Load the trained GP model, scaler, and data.
     
-    Prefers composite_model.pkl (literature + wet lab correction) if available,
-    falls back to gp_model.pkl (literature-only).
+    Uses model_metadata.json to decide whether the active model is composite
+    (literature + wet lab correction) or standard GP (literature-only).
     
     When composite model is detected, loads evaluation_data.csv (which includes
     both literature and wet lab rows with weights) instead of parsed_formulations.csv.
@@ -117,11 +128,16 @@ def load_model_and_data(project_root: str):
     """
     model_dir = os.path.join(project_root, 'models')
     
-    # Load model — prefer composite model if available
+    metadata_path = os.path.join(model_dir, 'model_metadata.json')
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+
+    feature_names = metadata['feature_names']
     composite_path = os.path.join(model_dir, 'composite_model.pkl')
+    wants_composite = metadata.get('is_composite_model', False)
     is_composite = False
-    
-    if os.path.exists(composite_path):
+
+    if wants_composite and os.path.exists(composite_path):
         with open(composite_path, 'rb') as f:
             gp = pickle.load(f)
         is_composite = True
@@ -142,6 +158,11 @@ def load_model_and_data(project_root: str):
             df['source'] = 'literature'
             print("  ⚠ evaluation_data.csv not found, using parsed_formulations.csv")
     else:
+        if wants_composite and not os.path.exists(composite_path):
+            print("  >>> Composite model metadata found, but composite_model.pkl is missing.")
+            print("  >>> Falling back to STANDARD GP model (literature-only artifacts).")
+        elif os.path.exists(composite_path):
+            print("  >>> Ignoring stale COMPOSITE artifact because metadata marks the active model as standard GP.")
         with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
             gp = pickle.load(f)
         with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
@@ -154,13 +175,14 @@ def load_model_and_data(project_root: str):
         df['weight'] = 1.0
         df['source'] = 'literature'
     
-    with open(os.path.join(model_dir, 'model_metadata.json'), 'r') as f:
-        metadata = json.load(f)
-    
-    feature_names = metadata['feature_names']
-    
-    # Load feature importance (from model training — will be recomputed)
-    importance_df = pd.read_csv(os.path.join(model_dir, 'feature_importance.csv'))
+    importance_path = os.path.join(model_dir, 'feature_importance.csv')
+    if os.path.exists(importance_path):
+        importance_df = pd.read_csv(importance_path)
+    else:
+        importance_df = pd.DataFrame({
+            'feature': [name.replace('_M', '').replace('_pct', '') for name in feature_names],
+            'importance': np.zeros(len(feature_names)),
+        })
     
     return gp, scaler, feature_names, df, importance_df, is_composite
 
@@ -554,13 +576,18 @@ def expected_improvement(mean: np.ndarray, std: np.ndarray,
     return ei
 
 
+def upper_confidence_bound(mean: np.ndarray, std: np.ndarray, kappa: float = 0.5) -> np.ndarray:
+    """Calculate Upper Confidence Bound."""
+    return mean + kappa * std
+
+
 def plot_acquisition_landscape(model, scaler,
                                X: np.ndarray, y: np.ndarray, feature_names: List[str],
                                importance_df: pd.DataFrame, output_dir: str,
                                is_composite: bool = False,
                                config: ExplainabilityConfig = None):
     """
-    Visualize the Expected Improvement acquisition function landscape.
+    Visualize the configured acquisition function landscape.
     """
     config = config or ExplainabilityConfig()
     
@@ -589,10 +616,18 @@ def plot_acquisition_landscape(model, scaler,
     x2_range = np.linspace(X[:, idx2].min(), X[:, idx2].max(), n_points)
     X1, X2 = np.meshgrid(x1_range, x2_range)
     
-    # Compute predictions and EI
+    # Compute predictions and acquisition score.
     Z_mean = np.zeros_like(X1)
     Z_std = np.zeros_like(X1)
-    Z_ei = np.zeros_like(X1)
+    Z_acq = np.zeros_like(X1)
+
+    acquisition_mode = config.acquisition_mode.lower()
+    if acquisition_mode == 'ei':
+        acquisition_label = 'Expected Improvement'
+        acquisition_title = 'Acquisition Function (EI)'
+    else:
+        acquisition_label = 'Upper Confidence Bound'
+        acquisition_title = 'Acquisition Function (UCB)'
     
     for i in range(X1.shape[0]):
         for j in range(X1.shape[1]):
@@ -603,7 +638,14 @@ def plot_acquisition_landscape(model, scaler,
                                       is_composite, return_std=True)
             Z_mean[i, j] = mean[0]
             Z_std[i, j] = std[0]
-            Z_ei[i, j] = expected_improvement(mean, std, y_best)[0]
+            if acquisition_mode == 'ei':
+                Z_acq[i, j] = expected_improvement(
+                    mean, std, y_best, xi=config.acquisition_xi
+                )[0]
+            else:
+                Z_acq[i, j] = upper_confidence_bound(
+                    mean, std, kappa=config.acquisition_kappa
+                )[0]
     
     # Create figure with 3 subplots
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -622,12 +664,12 @@ def plot_acquisition_landscape(model, scaler,
     axes[1].set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     axes[1].set_title('GP Uncertainty', fontweight='bold')
     
-    # Plot 3: Expected Improvement
-    contour3 = axes[2].contourf(X1, X2, Z_ei, levels=20, cmap=config.cmap_ei)
-    plt.colorbar(contour3, ax=axes[2], label='Expected Improvement')
+    # Plot 3: acquisition score
+    contour3 = axes[2].contourf(X1, X2, Z_acq, levels=20, cmap=config.cmap_acquisition)
+    plt.colorbar(contour3, ax=axes[2], label=acquisition_label)
     axes[2].set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
     axes[2].set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
-    axes[2].set_title('Acquisition Function (EI)', fontweight='bold')
+    axes[2].set_title(acquisition_title, fontweight='bold')
     
     # Mark best observed point
     best_idx = np.argmax(y)

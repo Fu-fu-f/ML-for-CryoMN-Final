@@ -26,11 +26,13 @@ import os
 import json
 import pickle
 import shutil
+import sys
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 
@@ -45,6 +47,9 @@ ALPHA_WETLAB = 0.02        # Lower noise: wet lab data is more trusted
 
 # Noise ratio in the combined approach
 NOISE_RATIO = ALPHA_LITERATURE / ALPHA_WETLAB  # 50x
+
+# Make the module importable under a stable name even when executed as a script.
+sys.modules.setdefault('update_model_weighted_prior', sys.modules[__name__])
 
 
 # =============================================================================
@@ -179,6 +184,80 @@ class CompositeGP:
         return 1 - (ss_res / ss_tot)
 
 
+CompositeGP.__module__ = 'update_model_weighted_prior'
+
+
+def create_gp_model(alpha: float, noise_level: float = 1.0) -> GaussianProcessRegressor:
+    """Create a GP configured for either literature or correction fitting."""
+    kernel = (
+        ConstantKernel(1.0, (1e-3, 1e3))
+        * Matern(nu=2.5, length_scale_bounds=(1e-5, 1e5))
+        + WhiteKernel(noise_level=noise_level)
+    )
+    return GaussianProcessRegressor(
+        kernel=kernel,
+        n_restarts_optimizer=10,
+        random_state=42,
+        alpha=alpha,
+        normalize_y=True,
+    )
+
+
+def fit_literature_model(
+    X_orig: np.ndarray, y_orig: np.ndarray, alpha_literature: float
+) -> Tuple[GaussianProcessRegressor, StandardScaler]:
+    """Fit the literature-only GP once."""
+    scaler_lit = StandardScaler()
+    X_orig_scaled = scaler_lit.fit_transform(X_orig)
+    gp_literature = create_gp_model(alpha_literature, noise_level=1.0)
+    gp_literature.fit(X_orig_scaled, y_orig)
+    return gp_literature, scaler_lit
+
+
+def fit_correction_model(
+    X_val_train: np.ndarray, residuals_train: np.ndarray, alpha_wetlab: float
+) -> Tuple[GaussianProcessRegressor, StandardScaler]:
+    """Fit the wet-lab residual model."""
+    scaler_corr = StandardScaler()
+    X_val_scaled = scaler_corr.fit_transform(X_val_train)
+    gp_correction = create_gp_model(alpha_wetlab, noise_level=0.1)
+    gp_correction.fit(X_val_scaled, residuals_train)
+    return gp_correction, scaler_corr
+
+
+def compute_wetlab_cv_rmse(
+    gp_literature: GaussianProcessRegressor,
+    scaler_lit: StandardScaler,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    alpha_wetlab: float,
+) -> float:
+    """Estimate wet-lab generalization error by cross-validating the correction GP."""
+    if len(X_val) < 2:
+        return float('nan')
+
+    y_lit_pred = gp_literature.predict(scaler_lit.transform(X_val))
+    residuals = y_val - y_lit_pred
+    splitter = KFold(
+        n_splits=min(5, len(X_val)), shuffle=True, random_state=42
+    )
+    y_pred = np.zeros(len(y_val))
+
+    for train_idx, test_idx in splitter.split(X_val):
+        gp_corr_fold, scaler_corr_fold = fit_correction_model(
+            X_val[train_idx], residuals[train_idx], alpha_wetlab
+        )
+        composite_fold = CompositeGP(
+            gp_literature=gp_literature,
+            gp_correction=gp_corr_fold,
+            scaler_literature=scaler_lit,
+            scaler_correction=scaler_corr_fold,
+        )
+        y_pred[test_idx] = composite_fold.predict(X_val[test_idx])
+
+    return float(np.sqrt(np.mean((y_val - y_pred) ** 2)))
+
+
 def save_composite_model(composite_model: CompositeGP, output_dir: str, metadata: Dict):
     """
     Save composite model components.
@@ -272,21 +351,10 @@ def update_model_with_prior_mean(
     # =========================================================================
     print("\n--- Stage 1: Literature Model (Prior Mean) ---")
     
-    scaler_lit = StandardScaler()
-    X_orig_scaled = scaler_lit.fit_transform(X_orig)
-    
-    kernel_lit = ConstantKernel(1.0, (1e-3, 1e3)) * Matern(nu=2.5, length_scale_bounds=(1e-5, 1e5)) + WhiteKernel(noise_level=1.0)
-    
-    gp_literature = GaussianProcessRegressor(
-        kernel=kernel_lit,
-        n_restarts_optimizer=10,
-        random_state=42,
-        alpha=alpha_literature,  # Higher noise for literature
-        normalize_y=True,
-    )
-    
     print("Training literature model...")
-    gp_literature.fit(X_orig_scaled, y_orig)
+    gp_literature, scaler_lit = fit_literature_model(
+        X_orig, y_orig, alpha_literature
+    )
     print(f"Literature kernel: {gp_literature.kernel_}")
     
     # Get literature predictions at validation points
@@ -304,23 +372,10 @@ def update_model_with_prior_mean(
     # =========================================================================
     print("\n--- Stage 2: Correction Model (Wet Lab Residuals) ---")
     
-    scaler_corr = StandardScaler()
-    X_val_scaled = scaler_corr.fit_transform(X_val)
-    
-    # Use a separate kernel for correction model
-    # Smaller length scales to capture local corrections
-    kernel_corr = ConstantKernel(1.0, (1e-3, 1e3)) * Matern(nu=2.5, length_scale_bounds=(1e-5, 1e5)) + WhiteKernel(noise_level=0.1)
-    
-    gp_correction = GaussianProcessRegressor(
-        kernel=kernel_corr,
-        n_restarts_optimizer=10,
-        random_state=42,
-        alpha=alpha_wetlab,  # Lower noise for wet lab (more trusted)
-        normalize_y=True,
-    )
-    
     print("Training correction model on residuals...")
-    gp_correction.fit(X_val_scaled, residuals)
+    gp_correction, scaler_corr = fit_correction_model(
+        X_val, residuals, alpha_wetlab
+    )
     print(f"Correction kernel: {gp_correction.kernel_}")
     
     # =========================================================================
@@ -335,17 +390,24 @@ def update_model_with_prior_mean(
         scaler_correction=scaler_corr
     )
     
-    # Evaluate composite model on validation data
+    # Evaluate composite model on wet-lab data and estimate held-out RMSE.
     y_composite_pred = composite_model.predict(X_val)
-    val_rmse = np.sqrt(np.mean((y_val - y_composite_pred) ** 2))
+    train_rmse = float(np.sqrt(np.mean((y_val - y_composite_pred) ** 2)))
+    val_rmse = compute_wetlab_cv_rmse(
+        gp_literature, scaler_lit, X_val, y_val, alpha_wetlab
+    )
     
     # Also check literature-only RMSE for comparison
     lit_rmse = np.sqrt(np.mean((y_val - y_lit_pred) ** 2))
     
     print(f"\nValidation Performance:")
     print(f"  Literature-only RMSE: {lit_rmse:.2f}")
-    print(f"  Composite model RMSE: {val_rmse:.2f}")
-    print(f"  Improvement: {lit_rmse - val_rmse:.2f} ({(1 - val_rmse/lit_rmse)*100:.1f}%)")
+    print(f"  Composite train RMSE: {train_rmse:.2f}")
+    if np.isnan(val_rmse):
+        print("  Wet-lab CV RMSE: N/A (need at least 2 wet-lab samples)")
+    else:
+        print(f"  Wet-lab CV RMSE: {val_rmse:.2f}")
+        print(f"  Improvement: {lit_rmse - val_rmse:.2f} ({(1 - val_rmse/lit_rmse)*100:.1f}%)")
     
     # =========================================================================
     # Save Model
@@ -360,6 +422,7 @@ def update_model_with_prior_mean(
     metadata['n_validation_samples'] = len(X_val)
     metadata['n_literature_samples'] = len(X_orig)
     metadata['validation_rmse'] = val_rmse
+    metadata['wetlab_train_rmse'] = train_rmse
     metadata['literature_only_rmse'] = lit_rmse
     metadata['weighting_method'] = 'prior_mean_correction'
     metadata['alpha_literature'] = alpha_literature
@@ -373,6 +436,7 @@ def update_model_with_prior_mean(
         'n_literature': len(X_orig),
         'n_validation': len(X_val),
         'literature_rmse': lit_rmse,
+        'wetlab_train_rmse': train_rmse,
         'validation_rmse': val_rmse,
         'improvement': lit_rmse - val_rmse,
         'noise_ratio': alpha_literature / alpha_wetlab,
@@ -579,10 +643,10 @@ def main():
     print("Prior Mean + Correction Validation Loop Complete!")
     print("=" * 80)
     print(f"\nMethod: Literature as prior + wet lab correction")
-    print(f"Improvement over literature-only: {stats['improvement']:.2f} RMSE")
+    print(f"Improvement over literature-only (CV RMSE): {stats['improvement']:.2f}")
     print(f"Mean systematic bias found: {stats['mean_residual']:+.2f}%")
     print(f"\nNext steps:")
-    print(f"  1. Run optimization: python src/05_bo_optimization/bo_optimize.py")
+    print(f"  1. Run optimization: python src/05_bo_optimization/bo_optimizer.py")
     print(f"  2. Test top candidates in wet lab")
     print(f"  3. Add results to: {validation_path}")
     print(f"  4. Run this script again for next iteration")

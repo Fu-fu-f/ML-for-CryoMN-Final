@@ -34,7 +34,7 @@ Matérn kernel (ν=2.5) with:
 
 ### Training
 
-- 5-fold cross-validation for hyperparameter tuning
+- 5-fold cross-validation for model assessment
 - StandardScaler for feature normalization
 - Target normalization enabled
 
@@ -66,22 +66,10 @@ Features are automatically selected based on:
 
 ## Programmatic Usage
 
-```python
-from src.02_model_training.train_gp_model import load_model
-
-# Load trained model
-gp, scaler, metadata = load_model('models/')
-
-# Make predictions
-X_new = ...  # New formulation features (21 features)
-X_scaled = scaler.transform(X_new)
-y_pred, y_std = gp.predict(X_scaled, return_std=True)
-
-print(f"Predicted viability: {y_pred[0]:.1f}% ± {y_std[0]:.1f}%")
-```
+This module is primarily intended to be run as a CLI script. Because the source folders are numbered (`src/02_model_training`, etc.), direct imports like `from src.02_model_training...` are not valid Python syntax. If you need programmatic access, load the file by path with `importlib.util` or move the reusable code into a conventional package layout.
 
 ## Current Model Stats
 
 - **Active features**: 21 ingredients
-- **Training samples**: 191 formulations
+- **Training samples**: 198 formulations
 - **Feature types**: 14 molar + 7 percentage-based

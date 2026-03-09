@@ -23,6 +23,7 @@ from datetime import datetime
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel, ConstantKernel
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 
@@ -99,6 +100,67 @@ def load_validation_results(validation_path: str, feature_names: List[str]) -> T
 # WEIGHTED MODEL UPDATE
 # =============================================================================
 
+def create_gp_model() -> GaussianProcessRegressor:
+    """Create the standard GP used across update workflows."""
+    kernel = (
+        ConstantKernel(1.0, (1e-3, 1e3))
+        * Matern(nu=2.5, length_scale_bounds=(1e-5, 1e5))
+        + WhiteKernel(noise_level=1.0)
+    )
+    return GaussianProcessRegressor(
+        kernel=kernel,
+        n_restarts_optimizer=10,
+        random_state=42,
+        alpha=1e-6,
+        normalize_y=True,
+    )
+
+
+def fit_weighted_gp(
+    X_orig: np.ndarray,
+    y_orig: np.ndarray,
+    X_val_train: np.ndarray,
+    y_val_train: np.ndarray,
+    weight_multiplier: int,
+) -> Tuple[GaussianProcessRegressor, StandardScaler, np.ndarray, np.ndarray]:
+    """Fit the duplicated-sample GP on a wet-lab training subset."""
+    X_val_weighted = np.repeat(X_val_train, weight_multiplier, axis=0)
+    y_val_weighted = np.repeat(y_val_train, weight_multiplier)
+    X_combined = np.vstack([X_orig, X_val_weighted])
+    y_combined = np.concatenate([y_orig, y_val_weighted])
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_combined)
+    gp = create_gp_model()
+    gp.fit(X_scaled, y_combined)
+
+    return gp, scaler, X_val_weighted, y_val_weighted
+
+
+def compute_wetlab_cv_rmse(
+    X_orig: np.ndarray,
+    y_orig: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    weight_multiplier: int,
+) -> float:
+    """Estimate wet-lab generalization error by cross-validating over wet-lab rows."""
+    if len(X_val) < 2:
+        return float('nan')
+
+    splitter = KFold(
+        n_splits=min(5, len(X_val)), shuffle=True, random_state=42
+    )
+    y_pred = np.zeros(len(y_val))
+
+    for train_idx, test_idx in splitter.split(X_val):
+        gp_fold, scaler_fold, _, _ = fit_weighted_gp(
+            X_orig, y_orig, X_val[train_idx], y_val[train_idx], weight_multiplier
+        )
+        y_pred[test_idx] = gp_fold.predict(scaler_fold.transform(X_val[test_idx]))
+
+    return float(np.sqrt(np.mean((y_val - y_pred) ** 2)))
+
 def update_model_weighted(
     original_model_dir: str, 
     validation_data: Tuple[np.ndarray, np.ndarray],
@@ -125,11 +187,9 @@ def update_model_weighted(
     X_val, y_val = validation_data
     X_orig, y_orig = original_data
     
-    # Apply weighting by duplicating validation samples
-    X_val_weighted = np.repeat(X_val, weight_multiplier, axis=0)
-    y_val_weighted = np.repeat(y_val, weight_multiplier)
-    
-    # Combine datasets
+    gp, scaler, X_val_weighted, y_val_weighted = fit_weighted_gp(
+        X_orig, y_orig, X_val, y_val, weight_multiplier
+    )
     X_combined = np.vstack([X_orig, X_val_weighted])
     y_combined = np.concatenate([y_orig, y_val_weighted])
     
@@ -139,31 +199,22 @@ def update_model_weighted(
     print(f"Effective combined data: {len(X_combined)} samples")
     print(f"Effective validation weight: {len(X_val_weighted) / len(X_combined) * 100:.1f}% of training data")
     
-    # Create new scaler on combined data
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_combined)
-    
-    # Create and train new GP
-    kernel = ConstantKernel(1.0, (1e-3, 1e3)) * Matern(nu=2.5, length_scale_bounds=(1e-5, 1e5)) + WhiteKernel(noise_level=1.0)
-    
-    gp = GaussianProcessRegressor(
-        kernel=kernel,
-        n_restarts_optimizer=10,
-        random_state=42,
-        alpha=1e-6,
-        normalize_y=True,
-    )
-    
     print("\nTraining weighted model...")
-    gp.fit(X_scaled, y_combined)
     
-    # Evaluate on validation data (using original, non-duplicated samples)
+    # Measure both in-sample fit and a wet-lab cross-validated RMSE.
     X_val_scaled = scaler.transform(X_val)
     y_val_pred = gp.predict(X_val_scaled)
-    val_rmse = np.sqrt(np.mean((y_val - y_val_pred) ** 2))
+    train_rmse = float(np.sqrt(np.mean((y_val - y_val_pred) ** 2)))
+    val_rmse = compute_wetlab_cv_rmse(
+        X_orig, y_orig, X_val, y_val, weight_multiplier
+    )
     
     print(f"Optimized kernel: {gp.kernel_}")
-    print(f"Validation RMSE: {val_rmse:.2f}")
+    print(f"Wet-lab train RMSE: {train_rmse:.2f}")
+    if np.isnan(val_rmse):
+        print("Wet-lab CV RMSE: N/A (need at least 2 wet-lab samples)")
+    else:
+        print(f"Wet-lab CV RMSE: {val_rmse:.2f}")
     
     # Save updated model
     os.makedirs(output_dir, exist_ok=True)
@@ -182,8 +233,10 @@ def update_model_weighted(
     metadata['n_validation_samples'] = len(X_val)
     metadata['n_total_samples'] = len(X_combined)
     metadata['validation_rmse'] = val_rmse
+    metadata['wetlab_train_rmse'] = train_rmse
     metadata['weighting_method'] = 'sample_duplication'
     metadata['weight_multiplier'] = weight_multiplier
+    metadata['is_composite_model'] = False
     
     with open(os.path.join(output_dir, 'model_metadata.json'), 'w') as f:
         json.dump(metadata, f, indent=2)
@@ -195,6 +248,7 @@ def update_model_weighted(
         'n_validation': len(X_val),
         'n_validation_weighted': len(X_val_weighted),
         'n_total': len(X_combined),
+        'wetlab_train_rmse': train_rmse,
         'validation_rmse': val_rmse,
         'weight_multiplier': weight_multiplier,
     }
@@ -338,7 +392,7 @@ def main():
     print(f"\nMethod: Sample duplication ({VALIDATION_WEIGHT_MULTIPLIER}x weight)")
     print(f"Effective validation influence: {stats['n_validation_weighted']} / {stats['n_total']} samples")
     print(f"\nNext steps:")
-    print(f"  1. Run optimization: python src/05_bo_optimization/bo_optimize.py")
+    print(f"  1. Run optimization: python src/05_bo_optimization/bo_optimizer.py")
     print(f"  2. Test top candidates in wet lab")
     print(f"  3. Add results to: {validation_path}")
     print(f"  4. Run this script again for next iteration")

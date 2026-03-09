@@ -36,11 +36,39 @@ from update_model_weighted_prior import CompositeGP  # noqa: E402
 # CONFIGURATION
 # =============================================================================
 
+def load_active_model(model_dir: str):
+    """Load the model selected by metadata, ignoring stale artifacts."""
+    metadata_path = os.path.join(model_dir, 'model_metadata.json')
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+
+    composite_path = os.path.join(model_dir, 'composite_model.pkl')
+    wants_composite = metadata.get('is_composite_model', False)
+
+    if wants_composite and os.path.exists(composite_path):
+        with open(composite_path, 'rb') as f:
+            gp = pickle.load(f)
+        print(">>> Using COMPOSITE model (literature prior + wet lab correction)")
+        return gp, None, metadata, True
+
+    if wants_composite and not os.path.exists(composite_path):
+        print(">>> Composite model metadata found, but composite_model.pkl is missing.")
+        print(">>> Falling back to STANDARD GP model (literature-only artifacts).")
+    elif os.path.exists(composite_path):
+        print(">>> Ignoring stale COMPOSITE artifact because metadata marks the active model as standard GP.")
+
+    with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
+        gp = pickle.load(f)
+    with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
+        scaler = pickle.load(f)
+    print(">>> Using STANDARD GP model (literature-only)")
+    return gp, scaler, metadata, False
+
 @dataclass
 class BOConfig:
     """Configuration for Bayesian optimization with DE."""
     max_ingredients: int = 10
-    max_dmso_percent: float = 5.0  # Set to 0.5 for DMSO-free
+    max_dmso_percent: float = 5.0  # Set to 0.5 for low-DMSO mode
     min_viability: float = 70.0
     n_candidates: int = 20
     acquisition: str = 'ucb'  # 'ei' or 'ucb'
@@ -148,7 +176,7 @@ class BayesianOptimizer:
     """
     Bayesian Optimizer using Differential Evolution.
     
-    Uses DE to find formulations that maximize Expected Improvement,
+    Uses DE to maximize the configured acquisition function,
     providing proper exploration-exploitation balance.
     """
     
@@ -414,7 +442,7 @@ class BayesianOptimizer:
     def generate_dmso_free_candidates(self, X_observed: np.ndarray,
                                        y_observed: np.ndarray,
                                        n_candidates: int = 20) -> pd.DataFrame:
-        """Generate DMSO-free candidates."""
+        """Generate low-DMSO candidates (<0.5% v/v)."""
         # Temporarily set DMSO bound to near-zero
         original_max = self.max_dmso_molar
         self.max_dmso_molar = 0.07  # ~0.5% DMSO
@@ -500,27 +528,8 @@ def main():
     print("CryoMN Bayesian Optimization with Differential Evolution")
     print("=" * 80)
     
-    # Load model — prefer composite model if available
     print("\nLoading trained model...")
-    composite_path = os.path.join(model_dir, 'composite_model.pkl')
-    is_composite = False
-    
-    if os.path.exists(composite_path):
-        with open(composite_path, 'rb') as f:
-            gp = pickle.load(f)
-        is_composite = True
-        scaler = None  # Composite model handles scaling internally
-        print(">>> Using COMPOSITE model (literature prior + wet lab correction)")
-    else:
-        with open(os.path.join(model_dir, 'gp_model.pkl'), 'rb') as f:
-            gp = pickle.load(f)
-        with open(os.path.join(model_dir, 'scaler.pkl'), 'rb') as f:
-            scaler = pickle.load(f)
-        print(">>> Using STANDARD GP model (literature-only)")
-    
-    with open(os.path.join(model_dir, 'model_metadata.json'), 'r') as f:
-        metadata = json.load(f)
-    
+    gp, scaler, metadata, is_composite = load_active_model(model_dir)
     feature_names = metadata['feature_names']
     print(f"Model loaded with {len(feature_names)} features")
     
@@ -550,7 +559,7 @@ def main():
     print("\n1. General optimization (≤5% DMSO)...")
     general_candidates = optimizer.optimize(X, y, n_candidates=20)
     
-    print("\n2. DMSO-free optimization...")
+    print("\n2. Low-DMSO optimization (<0.5% DMSO)...")
     dmso_free_candidates = optimizer.generate_dmso_free_candidates(X, y, n_candidates=20)
     
     # Export results
@@ -580,7 +589,7 @@ def main():
         print(f"  DMSO: {row['dmso_percent']:.1f}%, Ingredients: {int(row['n_ingredients'])}")
     
     print("\n" + "=" * 80)
-    print("Top 20 DMSO-Free Candidates")
+    print("Top 20 Low-DMSO Candidates (<0.5% DMSO)")
     print("=" * 80)
     for _, row in dmso_free_candidates.head(20).iterrows():
         print(f"\nRank {int(row['rank'])}: {config.acquisition.upper()} = {row['acquisition_value']:.4f}")

@@ -18,21 +18,19 @@ python src/03_optimization/optimize_formulation.py
 - **Model**: `models/composite_model.pkl` (preferred) or `models/gp_model.pkl` (fallback)
 - **Data**: `data/processed/parsed_formulations.csv`
 
-The script prioritizes `composite_model.pkl` if it exists, falling back to `gp_model.pkl`, and prints its selection:
+The script reads `models/model_metadata.json` to decide whether the active model is composite or standard, then prints its selection:
 - `>>> Using COMPOSITE model (literature prior + wet lab correction)` — if `composite_model.pkl` is found. This model is specifically created by running `04_validation_loop/update_model_weighted_prior.py`.
-- `>>> Using STANDARD GP model (literature-only)` — if falling back to `gp_model.pkl`. This occurs before any validation data is added, or if you used the other validation scripts (`update_model.py` or `update_model_weighted_simple.py`) and no composite model exists.
-
-> **Note**: Because the script strictly checks for `composite_model.pkl` first, if you switch from the `prior` method back to the simple concatenation methods, you must manually delete `composite_model.pkl` so the script correctly falls back to your newly updated `gp_model.pkl`.
+- `>>> Using STANDARD GP model (literature-only)` — if metadata marks the active model as standard. Stale composite artifacts are ignored automatically.
 
 ## Output
 
 - `results/candidates_general.csv` - Candidates with ≤5% DMSO
-- `results/candidates_dmso_free.csv` - DMSO-free candidates
+- `results/candidates_dmso_free.csv` - Low-DMSO candidates (`<0.5%` DMSO)
 - `*_summary.txt` - Human-readable summaries
 
 ## Algorithm
 
-1. Load trained model (composite if available, otherwise standard GP)
+1. Load the active model selected by `models/model_metadata.json`
 2. Generate large pool of random formulations (50× target count)
 3. Filter by constraints (max DMSO, max ingredients)
 4. Use model to predict viability for each candidate
@@ -43,7 +41,7 @@ The script prioritizes `composite_model.pkl` if it exists, falling back to `gp_m
 
 | Constraint | Value |
 |------------|-------|
-| Max DMSO | 5% (general), 0.5% (DMSO-free) |
+| Max DMSO | 5% (general), 0.5% (low-DMSO) |
 | Max ingredients | 10 |
 | Min viability | 70% (target) |
 
@@ -52,7 +50,7 @@ The script prioritizes `composite_model.pkl` if it exists, falling back to `gp_m
 | Aspect | This Module (03) | Proper BO (05) |
 |--------|------------------|----------------|
 | **Method** | Random sampling | Differential Evolution |
-| **Selection** | Highest predicted mean | Highest Expected Improvement |
+| **Selection** | Highest predicted mean | Highest UCB by default |
 | **Exploration** | None (pure exploitation) | Balanced via uncertainty |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
 | **Speed** | Fast (~seconds) | Slower (~minutes) |
@@ -78,10 +76,4 @@ rank,predicted_viability,uncertainty,dmso_percent,n_ingredients,dmso_M,trehalose
 
 ## Programmatic Usage
 
-```python
-from src.03_optimization.optimize_formulation import FormulationOptimizer, OptimizationConfig
-
-config = OptimizationConfig(max_dmso_percent=0.0, n_candidates=50)
-optimizer = FormulationOptimizer(gp, scaler, feature_names, config, is_composite=True)
-candidates = optimizer.generate_low_dmso_candidates(X, y)
-```
+Like the training module, this script is CLI-first. The numbered source layout means examples like `from src.03_optimization...` are not valid Python imports, so use `importlib.util` by file path or refactor reusable pieces into a conventional package if you need library-style access.
