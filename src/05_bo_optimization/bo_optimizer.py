@@ -37,7 +37,7 @@ from active_model_resolver import ModelResolutionError, resolve_active_model  # 
 @dataclass
 class BOConfig:
     """Configuration for Bayesian optimization with DE."""
-    max_ingredients: int = 10
+    max_ingredients: Optional[int] = None  # None = infer from observed formulations
     max_dmso_percent: float = 5.0  # Set to 0.5 for low-DMSO mode
     min_viability: float = 70.0
     n_candidates: int = 20
@@ -49,6 +49,9 @@ class BOConfig:
     random_seed: int = 42
     diversity_penalty: float = 5.0  # Strength of local penalization for batch diversity
     diversity_radius: float = 0.05  # Fraction of feature range (reduced to stay on the predictive peak)
+    sparsity_penalty: float = 0.35  # Mild preference for simpler formulations on flat plateaus
+    support_penalty: float = 4.0  # Penalize candidates that drift far from observed support
+    support_radius_scale: float = 1.25  # Slack multiplier on observed nearest-neighbor radius
 
 
 # =============================================================================
@@ -181,8 +184,63 @@ class BayesianOptimizer:
         
         # Set feature bounds
         self.bounds = self._get_feature_bounds()
+        self.effective_max_ingredients = len(self.feature_names)
+        self.reference_ingredient_count = 1
+        self.support_scaler = self._get_support_scaler()
+        self.observed_support_scaled: Optional[np.ndarray] = None
+        self.support_radius = np.inf
         
         np.random.seed(self.config.random_seed)
+
+    def _get_support_scaler(self):
+        """Return the scaler used to measure distance from observed support."""
+        if self.is_composite:
+            return getattr(self.gp, 'scaler_literature', None)
+        return self.scaler
+
+    def _fit_search_context(self, X_observed: np.ndarray):
+        """Derive realistic sparsity/support constraints from observed formulations."""
+        if len(X_observed) == 0:
+            requested = self.config.max_ingredients
+            self.effective_max_ingredients = max(1, requested or len(self.feature_names))
+            self.reference_ingredient_count = min(2, self.effective_max_ingredients)
+            self.observed_support_scaled = None
+            self.support_radius = np.inf
+            return
+
+        observed_counts = np.array([count_nonzero(row) for row in X_observed], dtype=int)
+        observed_nonzero = observed_counts[observed_counts > 0]
+        observed_max = int(observed_nonzero.max()) if len(observed_nonzero) else 1
+
+        requested = self.config.max_ingredients
+        if requested is None:
+            self.effective_max_ingredients = observed_max
+        else:
+            self.effective_max_ingredients = max(1, min(requested, observed_max))
+
+        if len(observed_nonzero):
+            self.reference_ingredient_count = int(np.median(observed_nonzero))
+        else:
+            self.reference_ingredient_count = 1
+
+        if self.support_scaler is None:
+            self.observed_support_scaled = None
+            self.support_radius = np.inf
+            return
+
+        self.observed_support_scaled = self.support_scaler.transform(X_observed)
+        if len(self.observed_support_scaled) < 2:
+            self.support_radius = np.inf
+            return
+
+        # Calibrate the acceptable radius from the observed nearest-neighbor distances.
+        diffs = self.observed_support_scaled[:, None, :] - self.observed_support_scaled[None, :, :]
+        distances = np.linalg.norm(diffs, axis=2)
+        np.fill_diagonal(distances, np.inf)
+        nearest_distances = np.min(distances, axis=1)
+        self.support_radius = float(
+            np.quantile(nearest_distances, 0.9) * self.config.support_radius_scale
+        )
     
     def _get_feature_bounds(self) -> List[Tuple[float, float]]:
         """Get bounds for each feature based on typical concentration ranges."""
@@ -211,12 +269,73 @@ class BayesianOptimizer:
         """
         x_sparse = x.copy()
         n_ing = count_nonzero(x_sparse)
-        if n_ing > self.config.max_ingredients:
+        if n_ing > self.effective_max_ingredients:
             nonzero_idx = np.where(np.abs(x_sparse) > 1e-6)[0]
             sorted_idx = nonzero_idx[np.argsort(np.abs(x_sparse[nonzero_idx]))]
-            for idx in sorted_idx[:n_ing - self.config.max_ingredients]:
+            for idx in sorted_idx[:n_ing - self.effective_max_ingredients]:
                 x_sparse[idx] = 0.0
         return x_sparse
+
+    def _complexity_penalty(self, x: np.ndarray) -> float:
+        """Prefer simpler formulations when the acquisition surface is nearly flat."""
+        n_ing = count_nonzero(x)
+        excess = max(0, n_ing - self.reference_ingredient_count)
+        return self.config.sparsity_penalty * excess
+
+    def _support_penalty(self, x: np.ndarray) -> float:
+        """Penalize candidates that move well outside the observed formulation manifold."""
+        if self.observed_support_scaled is None or not np.isfinite(self.support_radius):
+            return 0.0
+
+        x_scaled = self.support_scaler.transform(x.reshape(1, -1))
+        min_distance = float(
+            np.min(np.linalg.norm(self.observed_support_scaled - x_scaled, axis=1))
+        )
+        if min_distance <= self.support_radius:
+            return 0.0
+
+        overshoot = min_distance - self.support_radius
+        return self.config.support_penalty * overshoot * overshoot
+
+    def _clip_to_bounds(self, x: np.ndarray) -> np.ndarray:
+        """Clip a formulation to the configured feature bounds."""
+        x_clipped = x.copy()
+        for idx, (low, high) in enumerate(self.bounds):
+            x_clipped[idx] = np.clip(x_clipped[idx], low, high)
+        return x_clipped
+
+    def _build_initial_population(self,
+                                  seed_points: Optional[List[np.ndarray]],
+                                  seed: int) -> np.ndarray:
+        """Construct a DE initial population anchored on observed high performers."""
+        population_size = max(5, self.config.de_popsize * len(self.bounds))
+        rng = np.random.default_rng(seed)
+        ranges = np.array([high - low for low, high in self.bounds], dtype=float)
+        jitter_scale = np.maximum(ranges * 0.05, 1e-6)
+        population: List[np.ndarray] = []
+
+        for point in seed_points or []:
+            base = self._sparsify(self._clip_to_bounds(point))
+            population.append(base)
+            if len(population) >= population_size:
+                break
+
+            for _ in range(3):
+                perturbed = base + rng.normal(0.0, jitter_scale)
+                perturbed = self._sparsify(self._clip_to_bounds(perturbed))
+                population.append(perturbed)
+                if len(population) >= population_size:
+                    break
+            if len(population) >= population_size:
+                break
+
+        while len(population) < population_size:
+            random_point = np.array(
+                [rng.uniform(low, high) for low, high in self.bounds], dtype=float
+            )
+            population.append(self._sparsify(random_point))
+
+        return np.array(population[:population_size])
     
     def _local_penalizer(self, x: np.ndarray, found_candidates: List[np.ndarray]) -> float:
         """
@@ -247,6 +366,40 @@ class BayesianOptimizer:
             penalty += self.config.diversity_penalty * np.exp(-0.5 * dist_sq)
         
         return penalty
+
+    def _is_duplicate(self, x: np.ndarray, found_candidates: List[np.ndarray]) -> bool:
+        """Return True when a candidate matches an existing formulation closely."""
+        return any(np.allclose(x, prev, atol=1e-3, rtol=1e-3) for prev in found_candidates)
+
+    def _evaluate_candidate(self, x: np.ndarray, y_best: float) -> Dict[str, float]:
+        """Evaluate one formulation and package it for ranking/export."""
+        x_eval = self._sparsify(self._clip_to_bounds(x))
+        x_reshaped = x_eval.reshape(1, -1)
+        if self.is_composite:
+            pred_mean, pred_std = self.gp.predict(x_reshaped, return_std=True)
+        else:
+            x_scaled = self.scaler.transform(x_reshaped)
+            pred_mean, pred_std = self.gp.predict(x_scaled, return_std=True)
+
+        if self.config.acquisition.lower() == 'ei':
+            pure_acq = expected_improvement(
+                x_eval, self.gp, self.scaler, y_best, self.config.xi, self.is_composite
+            )
+        else:
+            pure_acq = upper_confidence_bound(
+                x_eval, self.gp, self.scaler, self.config.kappa, self.is_composite
+            )
+
+        dmso_molar = x_eval[self.dmso_index] if self.dmso_index >= 0 else 0
+        dmso_percent = dmso_molar * 78.13 / (1.10 * 10)
+        return {
+            'formulation': x_eval.copy(),
+            'acq_value': pure_acq,
+            'predicted_viability': pred_mean[0],
+            'uncertainty': pred_std[0],
+            'dmso_percent': dmso_percent,
+            'n_ingredients': count_nonzero(x_eval),
+        }
     
     def _objective_with_penalty(self, x: np.ndarray, y_best: float,
                                 found_candidates: List[np.ndarray] = None) -> float:
@@ -269,6 +422,8 @@ class BayesianOptimizer:
         penalty = 0.0
         if self.dmso_index >= 0 and x_sparse[self.dmso_index] > self.max_dmso_molar:
             penalty += (x_sparse[self.dmso_index] - self.max_dmso_molar) * 50.0
+        penalty += self._complexity_penalty(x_sparse)
+        penalty += self._support_penalty(x_sparse)
         
         # Batch diversity penalty: repel from previously found candidates
         if found_candidates:
@@ -277,7 +432,8 @@ class BayesianOptimizer:
         return neg_acq + penalty
     
     def _run_de_single(self, y_best: float, seed: int,
-                       found_candidates: List[np.ndarray] = None) -> Tuple[np.ndarray, float]:
+                       found_candidates: List[np.ndarray] = None,
+                       seed_points: Optional[List[np.ndarray]] = None) -> Tuple[np.ndarray, float]:
         """
         Run a single DE optimization to find one candidate.
         
@@ -295,6 +451,7 @@ class BayesianOptimizer:
             maxiter=self.config.de_maxiter,
             popsize=self.config.de_popsize,
             seed=seed,
+            init=self._build_initial_population(seed_points, seed),
             polish=True,  # Use L-BFGS-B to polish the result
             disp=False,
         )
@@ -316,6 +473,8 @@ class BayesianOptimizer:
         """
         if n_candidates is None:
             n_candidates = self.config.n_candidates
+
+        self._fit_search_context(X_observed)
         
         if self.is_composite:
             # When using composite model, compute y_best from model predictions
@@ -329,14 +488,43 @@ class BayesianOptimizer:
             print(f"Best observed viability: {y_best:.1f}%")
             
         print(f"Running batch-mode DE optimization for {n_candidates} candidates...")
+        print(
+            f"  Effective max ingredients: {self.effective_max_ingredients} "
+            f"(observed median: {self.reference_ingredient_count})"
+        )
+        if np.isfinite(self.support_radius):
+            print(f"  Support radius: {self.support_radius:.2f} scaled units")
         print(f"  Diversity penalty: {self.config.diversity_penalty}, radius: {self.config.diversity_radius}")
+
+        if self.is_composite:
+            observed_pred = self.gp.predict(X_observed)
+        else:
+            observed_pred = self.gp.predict(self.scaler.transform(X_observed))
+        seed_order = np.argsort(observed_pred)[::-1]
+        seed_formulations = [X_observed[idx].copy() for idx in seed_order[: min(12, len(seed_order))]]
         
         candidates = []
         found_formulations = []  # Track found candidates for diversity penalty
+
+        for seed_x in seed_formulations:
+            seed_candidate = self._evaluate_candidate(seed_x, y_best)
+            if self.dmso_index >= 0 and seed_candidate['formulation'][self.dmso_index] > self.max_dmso_molar:
+                continue
+            if self._is_duplicate(seed_candidate['formulation'], found_formulations):
+                continue
+            candidates.append(seed_candidate)
+            found_formulations.append(seed_candidate['formulation'].copy())
+            if len(candidates) >= n_candidates:
+                break
         
-        for i in range(n_candidates):
-            seed = self.config.random_seed + i
-            x_opt, _ = self._run_de_single(y_best, seed, found_formulations)
+        attempt = 0
+        max_attempts = max(n_candidates * 10, 20)
+        while len(candidates) < n_candidates and attempt < max_attempts:
+            seed = self.config.random_seed + attempt
+            x_opt, _ = self._run_de_single(
+                y_best, seed, found_formulations, seed_formulations
+            )
+            attempt += 1
             
             # Enforce constraints by clipping
             if self.dmso_index >= 0:
@@ -344,45 +532,28 @@ class BayesianOptimizer:
             
             # Sparsify: zero out smallest components if too many ingredients
             n_ing = count_nonzero(x_opt)
-            if n_ing > self.config.max_ingredients:
+            if n_ing > self.effective_max_ingredients:
                 # Zero out smallest components
                 nonzero_idx = np.where(np.abs(x_opt) > 1e-6)[0]
                 sorted_idx = nonzero_idx[np.argsort(np.abs(x_opt[nonzero_idx]))]
-                for idx in sorted_idx[:n_ing - self.config.max_ingredients]:
+                for idx in sorted_idx[:n_ing - self.effective_max_ingredients]:
                     x_opt[idx] = 0.0
+
+            if self._is_duplicate(x_opt, found_formulations):
+                continue
             
-            # Get final prediction
-            x_reshaped = x_opt.reshape(1, -1)
-            if self.is_composite:
-                pred_mean, pred_std = self.gp.predict(x_reshaped, return_std=True)
-            else:
-                x_scaled = self.scaler.transform(x_reshaped)
-                pred_mean, pred_std = self.gp.predict(x_scaled, return_std=True)
-            
-            # Recalculate pure acquisition value (without diversity penalty) for accurate reporting
-            if self.config.acquisition.lower() == 'ei':
-                pure_acq = expected_improvement(x_opt, self.gp, self.scaler, y_best, self.config.xi, self.is_composite)
-            else:
-                pure_acq = upper_confidence_bound(x_opt, self.gp, self.scaler, self.config.kappa, self.is_composite)
-            
-            # Calculate DMSO percentage
-            dmso_molar = x_opt[self.dmso_index] if self.dmso_index >= 0 else 0
-            dmso_percent = dmso_molar * 78.13 / (1.10 * 10)
-            
-            candidates.append({
-                'formulation': x_opt.copy(),
-                'acq_value': pure_acq,
-                'predicted_viability': pred_mean[0],
-                'uncertainty': pred_std[0],
-                'dmso_percent': dmso_percent,
-                'n_ingredients': count_nonzero(x_opt),
-            })
+            candidates.append(self._evaluate_candidate(x_opt, y_best))
             
             # Track this candidate for diversity penalty in subsequent DE runs
             found_formulations.append(x_opt.copy())
             
-            if (i + 1) % 5 == 0:
-                print(f"  Generated {i + 1}/{n_candidates} candidates...")
+            if len(candidates) % 5 == 0:
+                print(f"  Generated {len(candidates)}/{n_candidates} candidates...")
+
+        if len(candidates) < n_candidates:
+            print(
+                f"Warning: generated {len(candidates)} unique candidates after {attempt} attempts"
+            )
         
         # Sort by predicted viability (primary ranking for diverse batch candidates)
         candidates.sort(key=lambda c: c['predicted_viability'], reverse=True)
@@ -494,6 +665,37 @@ def build_iteration_output_path(output_dir: str, base_filename: str,
     return os.path.join(output_dir, f"{stem}_{suffix}{ext}")
 
 
+def load_observed_formulations(project_root: str,
+                               feature_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+    """Load literature plus any available wet-lab validation rows for BO context."""
+    literature_path = os.path.join(
+        project_root, 'data', 'processed', 'parsed_formulations.csv'
+    )
+    validation_path = os.path.join(
+        project_root, 'data', 'validation', 'validation_results.csv'
+    )
+
+    literature_df = pd.read_csv(literature_path)
+    literature_df = literature_df[literature_df['viability_percent'] <= 100].copy()
+    X_parts = [literature_df[feature_names].fillna(0.0).values]
+    y_parts = [literature_df['viability_percent'].values]
+
+    if os.path.exists(validation_path):
+        validation_df = pd.read_csv(validation_path)
+        validation_df = validation_df[validation_df['viability_measured'].notna()].copy()
+        if len(validation_df):
+            validation_features = validation_df.reindex(
+                columns=feature_names, fill_value=0.0
+            ).fillna(0.0)
+            X_parts.append(validation_features.values)
+            y_parts.append(validation_df['viability_measured'].values)
+            print(f"Loaded {len(validation_df)} wet-lab validation rows into BO context")
+
+    X_observed = np.vstack(X_parts)
+    y_observed = np.concatenate(y_parts)
+    return X_observed, y_observed
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -504,7 +706,6 @@ def main():
     project_root = os.path.dirname(os.path.dirname(script_dir))
     
     model_dir = os.path.join(project_root, 'models')
-    data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
     output_dir = os.path.join(project_root, 'results')
     os.makedirs(output_dir, exist_ok=True)
     
@@ -529,18 +730,13 @@ def main():
     elif resolution.iteration is not None:
         print(f"Resolved active iteration: iteration_{resolution.iteration}")
     
-    # Load data
-    print(f"\nLoading data from: {data_path}")
-    df = pd.read_csv(data_path)
-    df = df[df['viability_percent'] <= 100].copy()
-    
-    X = df[feature_names].values
-    y = df['viability_percent'].values
-    print(f"Loaded {len(df)} formulations")
+    # Load literature + wet-lab observations for BO search context
+    print("\nLoading observed formulations for BO context...")
+    X, y = load_observed_formulations(project_root, feature_names)
+    print(f"Loaded {len(X)} total observed formulations")
     
     # Initialize optimizer
     config = BOConfig(
-        max_ingredients=10,
         max_dmso_percent=5.0,
         n_candidates=20,
     )

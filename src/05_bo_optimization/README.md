@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module performs **proper Bayesian optimization** using Differential Evolution (DE) to maximize the configured acquisition function. By default it uses **Upper Confidence Bound (UCB)** and batch-mode local penalization to generate diverse candidates.
+This module performs **proper Bayesian optimization** using Differential Evolution (DE) to maximize the configured acquisition function. By default it uses **Upper Confidence Bound (UCB)**, seeds the search from the best observed formulations, and then uses batch-mode local penalization to generate diverse nearby candidates.
 
 ## Usage
 
@@ -15,7 +15,9 @@ python src/05_bo_optimization/bo_optimizer.py
 
 - **Model registry**: `models/model_metadata.json` + `data/validation/iteration_history.json`
 - **Iteration artifacts**: `models/iteration_*`
-- **Data**: `data/processed/parsed_formulations.csv`
+- **Observed formulations**:
+  - `data/processed/parsed_formulations.csv`
+  - `data/validation/validation_results.csv` when wet-lab measurements are available
 
 This script now uses the same active-model resolver as `03_optimization`:
 - If the latest recorded iteration and `models/model_metadata.json` agree, `05` loads that iteration's artifacts directly.
@@ -40,15 +42,18 @@ This script now uses the same active-model resolver as `03_optimization`:
 
 1. Validate the active iteration using `models/model_metadata.json`, `iteration_history.json`, and `models/iteration_*`
 2. Load the exact artifacts for the selected iteration
-3. Compute `y_best` from model predictions on observed data
-4. For each candidate (sequentially):
+3. Build the BO context from literature rows plus any wet-lab validation rows with measured viability
+4. Compute `y_best` from model predictions on the combined observed set
+5. Seed the candidate pool with the best observed formulations under the active model
+6. For each remaining candidate (sequentially):
    - Run Differential Evolution to find `x* = argmax(UCB(x) - penalty(x))`
-   - DE explores the entire search space globally
+   - DE starts from warm starts around top observed formulations instead of a blind search only
    - **Batch diversity**: Gaussian penalty repels DE away from previously found candidates
-   - Constraint violations (DMSO, ingredient count) are penalized
-5. Recalculate pure UCB (without penalty) for accurate reporting
-6. Rank candidates by predicted viability
-7. Export with predictions and uncertainty estimates
+   - Constraint violations (DMSO, ingredient count, distance from observed support) are penalized
+   - Exact duplicates are skipped
+7. Recalculate pure UCB (without penalty) for accurate reporting
+8. Rank candidates by predicted viability
+9. Export with predictions and uncertainty estimates
 
 ### Batch Diversity (Local Penalization)
 
@@ -78,12 +83,22 @@ In high-dimensional spaces (e.g., 21 ingredients) with limited data, almost the 
 
 Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will actively dive into the flat void rather than staying near known good recipes. UCB (with a tuned `kappa`) places proportional weight on the *predicted mean*, anchoring the optimizer to known high-performing peaks while still exploring slightly uncertain edges.
 
+### Wet-Lab Exploitation
+
+When validation results exist, `05` does not treat them as a separate downstream artifact. They are included directly in the BO context:
+
+- `y_best` can come from a validated wet-lab winner
+- DE is warm-started from the best observed formulations
+- the optimizer keeps candidates near the observed formulation manifold
+
+This matters for narrow peaks such as the validated ectoin + ethylene glycol region, which can be missed by a blind global search in a sparse 21-dimensional space.
+
 ### Configuration
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `acquisition` | `ucb` | Acquisition function to use (`ucb` or `ei`) |
-| `max_ingredients` | 10 | Max non-zero ingredients per formulation |
+| `max_ingredients` | `None` | Infer max non-zero ingredients from observed support; optional manual override |
 | `max_dmso_percent` | 5.0 | Max DMSO (general), 0.5% (low-DMSO) |
 | `n_candidates` | 20 | Number of diverse candidates to generate |
 | `kappa` | 0.5 | UCB exploration parameter |
@@ -91,6 +106,9 @@ Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will 
 | `de_popsize` | 15 | DE population size |
 | `diversity_penalty` | 5.0 | Strength of batch diversity repulsion |
 | `diversity_radius` | 0.05 | Narrow radius; forces variations *around* the peak instead of pushing candidates completely into the void |
+| `sparsity_penalty` | 0.35 | Mild preference for simpler formulations on flat plateaus |
+| `support_penalty` | 4.0 | Penalizes candidates that move too far from observed support |
+| `support_radius_scale` | 1.25 | Slack around the observed nearest-neighbor radius |
 
 ## Comparison: Random Sampling vs DE-based BO
 
@@ -98,12 +116,12 @@ Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will 
 |--------|-------------------|----------------------|
 | **Search** | Random sampling | Differential Evolution |
 | **Acquisition** | Sorts by mean only | Maximizes UCB by default (EI optional) |
-| **Exploration** | Pure exploitation | Balanced |
+| **Exploration** | Pure exploitation | Exploit observed winners, then explore nearby variants |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
 | **Speed** | Fast (~seconds) | Slower (~minutes) |
-| **Quality** | May miss optima | Finds acquisition maxima |
+| **Quality** | May miss optima | Finds acquisition maxima while staying closer to validated support |
 
 ## When to Use Which?
 
 - **`03_optimization`**: Quick candidate generation, initial exploration, when speed matters
-- **`05_bo_optimization`**: Serious optimization, when you want the most diverse and informative experiments
+- **`05_bo_optimization`**: Serious optimization, when you want to preserve the best validated recipes and explore high-value local variants around them

@@ -55,6 +55,7 @@ python src/06_explainability/explainability.py
 - If root metadata is missing or inconsistent, these entry points prompt for an iteration number, reject nonsensical choices, and repair `models/model_metadata.json` only after telling you it is overwriting the metadata.
 - Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
 - `06_explainability` is also strict about composite data: if a composite model is active, `data/processed/evaluation_data.csv` must exist.
+- `05_bo_optimization` also builds its search context from both literature data and any measured wet-lab validation rows, so BO exploits validated peaks instead of searching from literature alone.
 
 ## Results
 
@@ -69,12 +70,14 @@ python src/06_explainability/explainability.py
 
 ### DE-based BO (`05_bo_optimization`)
 
-| Category | Best Candidate | Acquisition Score (UCB default) |
-|----------|----------------|---------------------------------|
-| General (≤5% DMSO) | 10-ingredient formulation | UCB = 0.842 |
-| Low-DMSO (<0.5%) | 10-ingredient formulation | UCB = 0.840 |
+| Behavior | Description |
+|----------|-------------|
+| Search context | Uses literature formulations plus wet-lab validation rows when available |
+| Default exploit step | Seeds the search with the best observed formulations under the active model |
+| Exploration step | Uses DE + UCB to generate unique nearby variants around high-value regions |
+| Sparsity | Caps ingredient count to the observed support by default instead of forcing 10-ingredient mixes |
 
-> **Note**: DE-based BO prioritizes *informative* experiments (high uncertainty) over highest predicted mean.
+> **Note**: DE-based BO now balances two goals: keep the best observed wet-lab winners in view, then explore nearby high-UCB variants instead of drifting into unrealistic out-of-distribution mixtures.
 
 See `results/` for full candidate lists.
 
@@ -132,7 +135,7 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, iteration-aware model loading | Quick generation, metadata repair when active model state is inconsistent |
 | `04_validation_loop` | Three update strategies + iteration checkpointing | Closing the active learning loop with wet lab feedback |
-| `05_bo_optimization` | Differential Evolution, shared iteration-aware model loading | Most informative experiments, exploration-exploitation balance |
+| `05_bo_optimization` | Differential Evolution, wet-lab-aware BO context, shared iteration-aware model loading | Exploiting validated winners while proposing nearby informative variants |
 | `06_explainability` | SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Understanding model drivers and ensuring trust |
 
 ## Key Features
@@ -147,3 +150,4 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 - **Iteration-aware recovery** (`03` can repair missing/conflicting active metadata interactively)
 - **Explainable AI** (SHAP and partial dependence plots to interpret Black Box GP)
 - **Two optimization modes**: Fast random sampling OR proper Bayesian optimization
+- **Wet-lab-aware BO** (`05` includes validation rows in the BO search context and seeds from top observed formulations)
