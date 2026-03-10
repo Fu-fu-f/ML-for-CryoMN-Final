@@ -26,9 +26,9 @@ python src/06_explainability/explainability.py
 
 **Composite GP mode (after running validation loop):**
 - `models/composite_model.pkl` (used when the resolved active iteration is composite)
-- `data/processed/evaluation_data.csv` (literature + wet lab rows with weights)
+- `models/<iteration_dir>/observed_context.csv` (literature + wet lab rows with `context_weight`)
 
-If a composite model is active and `evaluation_data.csv` is missing, the script now stops instead of falling back to literature-only data.
+If the canonical observed-context artifact is missing, `06` reconstructs it from literature + validation inputs. For older prior-mean iterations, it can also read the legacy `data/processed/evaluation_data.csv` mirror.
 
 Common:
 - `models/feature_importance.csv` (optional seed file; regenerated at runtime if missing)
@@ -60,7 +60,7 @@ If no explicit iteration metadata exists, the fallback directory is:
 ## Visualization Details
 
 ### 0. Feature Importance (recomputed)
-Feature importance is always **recomputed at runtime** using permutation importance against the active model and evaluation dataset. When using the composite model, importance uses **weighted R²** where each wet lab data point counts 50× more than each literature data point, matching the model's trust ratio. If `models/feature_importance.csv` is missing, the script rebuilds it instead of failing.
+Feature importance is always **recomputed at runtime** using permutation importance against the active model and observed-context dataset. When using the composite model, importance uses **weighted R²** where each wet lab data point counts according to `context_weight`, matching the active iteration's trust ratio. If `models/feature_importance.csv` is missing, the script rebuilds it instead of failing.
 
 ### 2. SHAP Analysis
 Uses [SHAP (SHapley Additive exPlanations)](https://shap.readthedocs.io/) to explain individual predictions:

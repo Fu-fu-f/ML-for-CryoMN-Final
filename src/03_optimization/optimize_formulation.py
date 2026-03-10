@@ -28,6 +28,7 @@ _validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop
 if _validation_dir not in sys.path:
     sys.path.insert(0, _validation_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
+from observed_context import load_observed_context  # noqa: E402
 
 # =============================================================================
 # OPTIMIZATION CONFIGURATION
@@ -500,6 +501,18 @@ def build_iteration_output_path(output_dir: str, base_filename: str,
     return os.path.join(output_dir, f"{stem}_{suffix}{ext}")
 
 
+def load_observed_data(project_root: str, resolution) -> pd.DataFrame:
+    """Load the active iteration's observed context for optimization."""
+    return load_observed_context(
+        project_root=project_root,
+        feature_names=resolution.metadata['feature_names'],
+        model_method=resolution.model_method,
+        iteration=resolution.iteration,
+        iteration_dir=resolution.iteration_dir,
+        metadata=resolution.metadata,
+    )
+
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -511,7 +524,6 @@ def main():
     project_root = os.path.dirname(os.path.dirname(script_dir))
     
     model_dir = os.path.join(project_root, 'models')
-    data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
     output_dir = os.path.join(project_root, 'results')
     os.makedirs(output_dir, exist_ok=True)
     
@@ -536,25 +548,15 @@ def main():
     elif resolution.iteration is not None:
         print(f"Resolved active iteration: iteration_{resolution.iteration}")
     
-    # Load observed data
-    print(f"\nLoading observed data from: {data_path}")
-    df = pd.read_csv(data_path)
-    df = df[df['viability_percent'] <= 100].copy()
-    
-    # Prepare features (handle both _M and _pct columns)
-    ingredient_cols = [c for c in df.columns if c.endswith('_M') or c.endswith('_pct')]
-    active_ingredients = [c for c in ingredient_cols if (df[c] > 0).sum() >= 3]
-    
-    X = df[active_ingredients].values
+    print("\nLoading observed context...")
+    df = load_observed_data(project_root, resolution)
+    X = df[feature_names].values
     y = df['viability_percent'].values
-    
-    # Ensure feature alignment
-    if active_ingredients != feature_names:
-        print("Warning: Feature alignment needed")
-        # Re-extract using model's feature names
-        X = df[feature_names].values
-    
-    print(f"Loaded {len(df)} formulations")
+    print(f"Loaded {len(df)} observed rows")
+    if 'source' in df.columns:
+        n_lit = int((df['source'] == 'literature').sum())
+        n_wet = int((df['source'] == 'wetlab').sum())
+        print(f"Observed sources: {n_lit} literature + {n_wet} wet lab")
     
     # Initialize optimizer
     config = OptimizationConfig(

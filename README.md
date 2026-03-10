@@ -52,10 +52,11 @@ python src/06_explainability/explainability.py
 
 - `src/04_validation_loop/*` saves each retrained checkpoint under `models/iteration_*`, updates `data/validation/iteration_history.json`, and then replaces the active root metadata in `models/model_metadata.json` with an explicit overwrite notice.
 - `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_explainability/explainability.py` now share the same iteration-aware resolver.
+- `src/04_validation_loop/*` also writes a canonical observed-context artifact to `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`.
 - If root metadata is missing or inconsistent, these entry points prompt for an iteration number, reject nonsensical choices, and repair `models/model_metadata.json` only after telling you it is overwriting the metadata.
 - Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
-- `06_explainability` is also strict about composite data: if a composite model is active, `data/processed/evaluation_data.csv` must exist.
-- `05_bo_optimization` also builds its search context from both literature data and any measured wet-lab validation rows, so BO exploits validated peaks instead of searching from literature alone.
+- `03_optimization`, `05_bo_optimization`, and `06_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
+- `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
 
 ## Results
 
@@ -72,7 +73,7 @@ python src/06_explainability/explainability.py
 
 | Behavior | Description |
 |----------|-------------|
-| Search context | Uses literature formulations plus wet-lab validation rows when available |
+| Search context | Uses iteration-aware observed context from literature + wet-lab rows, with analytic weights |
 | Default exploit step | Seeds the search with the best observed formulations under the active model |
 | Exploration step | Uses DE + UCB to generate unique nearby variants around high-value regions |
 | Sparsity | Caps ingredient count to the observed support by default instead of forcing 10-ingredient mixes |
@@ -114,9 +115,9 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 ```
 ├── data/
 │   ├── raw/                    # Original literature data
-│   ├── processed/              # Parsed formulations + evaluation data (with weights)
+│   ├── processed/              # Parsed formulations + legacy prior-mean evaluation mirror
 │   └── validation/             # Wet lab results template
-├── models/                     # Active model mirror + per-iteration checkpoints
+├── models/                     # Active model mirror + per-iteration checkpoints + observed context
 ├── results/                    # Optimized candidates + explainability graphs
 └── src/
     ├── 01_data_parsing/        # Parse CSV, normalize units, merge synonyms
@@ -150,4 +151,5 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 - **Iteration-aware recovery** (`03` can repair missing/conflicting active metadata interactively)
 - **Explainable AI** (SHAP and partial dependence plots to interpret Black Box GP)
 - **Two optimization modes**: Fast random sampling OR proper Bayesian optimization
-- **Wet-lab-aware BO** (`05` includes validation rows in the BO search context and seeds from top observed formulations)
+- **Canonical observed context** (`04` writes `observed_context.csv`; `03`, `05`, and `06` all consume the same active iteration view)
+- **Wet-lab-aware BO** (`05` uses weighted observed context and seeds from top observed formulations)

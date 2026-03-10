@@ -134,7 +134,8 @@ Downstream scripts use the active metadata in different ways:
 - `update_model_weighted_prior.py` marks the active model as **composite GP**
 - `03_optimization`, `05_bo_optimization`, and `06_explainability` now share the same iteration-aware resolver
 - the shared resolver validates metadata against iteration history and does **not** fall back automatically across model types
-- `06_explainability` also requires `data/processed/evaluation_data.csv` when a composite model is active
+- each update script now writes `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`
+- `03`, `05`, and `06` all load that observed context first and reconstruct it on demand if it is missing
 
 Whenever an update script activates a newly trained iteration by replacing `models/model_metadata.json`, it prints a notice that the active metadata is being overwritten and identifies the target iteration/method.
 
@@ -142,10 +143,11 @@ Whenever an update script activates a newly trained iteration by replacing `mode
 
 - Updated model in `models/iteration_N_<method>/`
 - Main model updated in `models/`
-- **Evaluation data** in `data/processed/evaluation_data.csv` (literature + wet lab with weights; created by `update_model_weighted_prior.py`)
+- **Observed context** in `models/iteration_N_<method>/observed_context.csv` and `models/observed_context.csv`
+- **Legacy evaluation data** in `data/processed/evaluation_data.csv` (compatibility mirror written by `update_model_weighted_prior.py`)
 - Iteration history in `data/validation/iteration_history.json`
 
-The evaluation data CSV includes a `weight` column (1.0 for literature, 50.0 for wet lab) and a `source` column. This file is used by the explainability script to compute weighted feature importance when the prior-mean workflow is active.
+The canonical observed context CSV includes a `context_weight` column (1.0 for literature, weighted values for wet lab), a `source` column, and iteration identity fields. `03`, `05`, and `06` use this file as the source of truth for the active iteration. The legacy evaluation data CSV keeps the older `weight` column for prior-mean compatibility only.
 
 ## Iteration Tracking
 

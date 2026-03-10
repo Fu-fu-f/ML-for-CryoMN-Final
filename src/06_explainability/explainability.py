@@ -51,6 +51,7 @@ _validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop
 if _validation_dir not in sys.path:
     sys.path.insert(0, _validation_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
+from observed_context import load_observed_context  # noqa: E402
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -118,13 +119,12 @@ def load_model_and_data(project_root: str):
     Uses model_metadata.json to decide whether the active model is composite
     (literature + wet lab correction) or standard GP (literature-only).
     
-    When composite model is detected, loads evaluation_data.csv (which includes
-    both literature and wet lab rows with weights) instead of parsed_formulations.csv.
+    Loads the active iteration's observed context, reconstructing it on demand
+    if the canonical artifact is missing.
     
     Returns:
         Tuple of (model, scaler, feature_names, data_df, importance_df, is_composite, resolution)
     """
-    model_dir = os.path.join(project_root, 'models')
     resolution = resolve_active_model(project_root)
     gp = resolution.gp
     scaler = resolution.scaler
@@ -132,22 +132,16 @@ def load_model_and_data(project_root: str):
     feature_names = metadata['feature_names']
     is_composite = resolution.is_composite
 
-    if is_composite:
-        eval_path = os.path.join(project_root, 'data', 'processed', 'evaluation_data.csv')
-        if not os.path.exists(eval_path):
-            raise ModelResolutionError(
-                "Composite model is active, but data/processed/evaluation_data.csv is missing. "
-                "Explainability will not fall back to literature-only data."
-            )
-        df = pd.read_csv(eval_path)
-        print(f"  >>> Loaded evaluation data with weights ({len(df)} rows)")
-    else:
-        data_path = os.path.join(project_root, 'data', 'processed', 'parsed_formulations.csv')
-        df = pd.read_csv(data_path)
-        df = df[df['viability_percent'] <= 100].copy()
-        df['weight'] = 1.0
-        df['source'] = 'literature'
+    df = load_observed_context(
+        project_root=project_root,
+        feature_names=feature_names,
+        model_method=resolution.model_method,
+        iteration=resolution.iteration,
+        iteration_dir=resolution.iteration_dir,
+        metadata=metadata,
+    )
     
+    model_dir = os.path.join(project_root, 'models')
     importance_path = os.path.join(model_dir, 'feature_importance.csv')
     if os.path.exists(importance_path):
         importance_df = pd.read_csv(importance_path)
@@ -861,7 +855,7 @@ def main():
     
     X = df[feature_names].values
     y = df['viability_percent'].values
-    weights = df['weight'].values if 'weight' in df.columns else np.ones(len(y))
+    weights = df['context_weight'].values if 'context_weight' in df.columns else np.ones(len(y))
     
     print(f"  Model loaded with {len(feature_names)} features")
     print(f"  Data loaded with {len(df)} formulations")
@@ -872,7 +866,7 @@ def main():
     if is_composite and 'source' in df.columns:
         n_lit = (df['source'] == 'literature').sum()
         n_wet = (df['source'] == 'wetlab').sum()
-        wet_weight = df.loc[df['source'] == 'wetlab', 'weight'].iloc[0] if n_wet > 0 else 'N/A'
+        wet_weight = df.loc[df['source'] == 'wetlab', 'context_weight'].iloc[0] if n_wet > 0 else 'N/A'
         print(f"  Sources: {n_lit} literature + {n_wet} wet lab (weight={wet_weight})")
     
     output_dir = build_explainability_output_dir(

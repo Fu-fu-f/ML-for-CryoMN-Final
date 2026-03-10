@@ -15,15 +15,15 @@ python src/05_bo_optimization/bo_optimizer.py
 
 - **Model registry**: `models/model_metadata.json` + `data/validation/iteration_history.json`
 - **Iteration artifacts**: `models/iteration_*`
-- **Observed formulations**:
-  - `data/processed/parsed_formulations.csv`
-  - `data/validation/validation_results.csv` when wet-lab measurements are available
+- **Observed context**: `models/<iteration_dir>/observed_context.csv` when available
+- **Fallback inputs**: `data/processed/parsed_formulations.csv` + `data/validation/validation_results.csv`
 
 This script now uses the same active-model resolver as `03_optimization`:
 - If the latest recorded iteration and `models/model_metadata.json` agree, `05` loads that iteration's artifacts directly.
 - If metadata is missing, malformed, or points at the wrong iteration, `05` prompts for an iteration number.
 - If you choose a valid iteration during conflict recovery, `05` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.
 - If metadata says the model is composite but the composite artifacts are missing, the script stops. It does **not** fall back to the standard GP automatically.
+- For BO context, `05` loads the same observed context used by `03` and `06`, and reconstructs it on demand if the artifact is missing.
 
 ## Output
 
@@ -42,7 +42,7 @@ This script now uses the same active-model resolver as `03_optimization`:
 
 1. Validate the active iteration using `models/model_metadata.json`, `iteration_history.json`, and `models/iteration_*`
 2. Load the exact artifacts for the selected iteration
-3. Build the BO context from literature rows plus any wet-lab validation rows with measured viability
+3. Build the BO context from the active observed context (literature + wet-lab rows with `context_weight`)
 4. Compute `y_best` from model predictions on the combined observed set
 5. Seed the candidate pool with the best observed formulations under the active model
 6. For each remaining candidate (sequentially):
@@ -85,11 +85,11 @@ Because EI mathematically rewards pure uncertainty, an EI-driven optimizer will 
 
 ### Wet-Lab Exploitation
 
-When validation results exist, `05` does not treat them as a separate downstream artifact. They are included directly in the BO context:
+When wet-lab results exist, `05` keeps them in the observed context with explicit weights instead of treating them as unrelated downstream artifacts:
 
 - `y_best` can come from a validated wet-lab winner
-- DE is warm-started from the best observed formulations
-- the optimizer keeps candidates near the observed formulation manifold
+- DE is warm-started from the best observed formulations, breaking prediction ties in favor of heavier weighted rows
+- support radius and ingredient-count priors are computed on unique formulations with analytic `context_weight`, so duplicate weighting from `04` does not collapse BO geometry
 
 This matters for narrow peaks such as the validated ectoin + ethylene glycol region, which can be missed by a blind global search in a sparse 21-dimensional space.
 
@@ -118,6 +118,7 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 | **Acquisition** | Sorts by mean only | Maximizes UCB by default (EI optional) |
 | **Exploration** | Pure exploitation | Exploit observed winners, then explore nearby variants |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
+| **Observed context** | Combined literature + wet-lab rows | Combined literature + wet-lab rows with analytic BO weights |
 | **Speed** | Fast (~seconds) | Slower (~minutes) |
 | **Quality** | May miss optima | Finds acquisition maxima while staying closer to validated support |
 

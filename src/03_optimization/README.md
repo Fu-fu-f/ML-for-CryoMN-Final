@@ -17,13 +17,15 @@ python src/03_optimization/optimize_formulation.py
 
 - **Model registry**: `models/model_metadata.json` + `data/validation/iteration_history.json`
 - **Iteration artifacts**: `models/iteration_*`
-- **Data**: `data/processed/parsed_formulations.csv`
+- **Observed context**: `models/<iteration_dir>/observed_context.csv` when available
+- **Fallback inputs**: `data/processed/parsed_formulations.csv` + `data/validation/validation_results.csv`
 
 The script now uses the shared active-model resolver that is also used by `05_bo_optimization` and `06_explainability`. It validates the active model against both root metadata and the recorded iteration history:
 - If the latest recorded iteration and `models/model_metadata.json` agree, `03` loads that iteration's artifacts directly.
 - If metadata is missing, malformed, or points at the wrong iteration, `03` prompts for an iteration number.
 - If you choose a valid iteration during conflict recovery, `03` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.
 - If metadata says the model is composite but the composite artifacts are missing, the script stops. It does **not** fall back to the standard GP automatically.
+- For observed data, `03` loads the same iteration-aware observed context used by `05` and `06`. If the artifact is missing, it reconstructs the context from literature + measured wet-lab rows without requiring any other downstream module to run first.
 
 ## Output
 
@@ -40,11 +42,12 @@ The script now uses the shared active-model resolver that is also used by `05_bo
 
 1. Validate the active iteration using `models/model_metadata.json`, `iteration_history.json`, and `models/iteration_*`
 2. Load the exact artifacts for the selected iteration
-3. Generate large pool of random formulations (50× target count)
-4. Filter by constraints (max DMSO, max ingredients)
-5. Use model to predict viability for each candidate
-6. Rank by predicted viability (highest mean)
-7. Select top-N candidates
+3. Load the active observed context (literature + wet lab rows)
+4. Generate large pool of random formulations (50× target count)
+5. Filter by constraints (max DMSO, max ingredients)
+6. Use model to predict viability for each candidate
+7. Rank by predicted viability (highest mean)
+8. Select top-N candidates
 
 ### Constraints
 

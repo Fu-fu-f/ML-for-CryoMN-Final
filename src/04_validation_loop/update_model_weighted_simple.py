@@ -33,6 +33,10 @@ from iteration_metadata import (
     load_iteration_history,
     stamp_model_metadata,
 )
+from observed_context import (
+    build_observed_context_df,
+    save_observed_context,
+)
 
 
 # =============================================================================
@@ -369,13 +373,26 @@ def main():
         iteration_dir_name=iteration_dir_name,
         model_method=model_method,
     )
+
+    observed_context_df = build_observed_context_df(
+        feature_names=feature_names,
+        X_literature=X_orig,
+        y_literature=y_orig,
+        X_wetlab=X_val,
+        y_wetlab=y_val,
+        model_method=model_method,
+        iteration=iteration,
+        iteration_dir=iteration_dir_name,
+        wetlab_context_weight=float(VALIDATION_WEIGHT_MULTIPLIER),
+    )
+    save_observed_context(updated_model_dir, observed_context_df)
     
     # Also update main model directory
     print("\nUpdating main model...")
     activate_iteration_artifacts(
         updated_model_dir,
         model_dir,
-        ['gp_model.pkl', 'scaler.pkl', 'model_metadata.json'],
+        ['gp_model.pkl', 'scaler.pkl', 'model_metadata.json', 'observed_context.csv'],
         iteration=iteration,
         model_method=model_method,
         reason='activating a newly trained iteration',

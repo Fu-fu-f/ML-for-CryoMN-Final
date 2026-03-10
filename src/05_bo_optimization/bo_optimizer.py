@@ -28,6 +28,11 @@ _validation_dir = os.path.join(os.path.dirname(_script_dir), '04_validation_loop
 if _validation_dir not in sys.path:
     sys.path.insert(0, _validation_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
+from observed_context import (  # noqa: E402
+    collapse_observed_context_for_bo,
+    load_observed_context,
+    weighted_quantile,
+)
 
 
 # =============================================================================
@@ -189,6 +194,7 @@ class BayesianOptimizer:
         self.support_scaler = self._get_support_scaler()
         self.observed_support_scaled: Optional[np.ndarray] = None
         self.support_radius = np.inf
+        self.seed_context: Optional[pd.DataFrame] = None
         
         np.random.seed(self.config.random_seed)
 
@@ -198,9 +204,12 @@ class BayesianOptimizer:
             return getattr(self.gp, 'scaler_literature', None)
         return self.scaler
 
-    def _fit_search_context(self, X_observed: np.ndarray):
+    def _fit_search_context(self, observed_df: pd.DataFrame):
         """Derive realistic sparsity/support constraints from observed formulations."""
-        if len(X_observed) == 0:
+        collapsed = collapse_observed_context_for_bo(observed_df, self.feature_names)
+        self.seed_context = collapsed
+
+        if len(collapsed) == 0:
             requested = self.config.max_ingredients
             self.effective_max_ingredients = max(1, requested or len(self.feature_names))
             self.reference_ingredient_count = min(2, self.effective_max_ingredients)
@@ -208,8 +217,11 @@ class BayesianOptimizer:
             self.support_radius = np.inf
             return
 
+        X_observed = collapsed[self.feature_names].values
+        context_weights = collapsed['context_weight'].to_numpy(dtype=float)
         observed_counts = np.array([count_nonzero(row) for row in X_observed], dtype=int)
         observed_nonzero = observed_counts[observed_counts > 0]
+        observed_nonzero_weights = context_weights[observed_counts > 0]
         observed_max = int(observed_nonzero.max()) if len(observed_nonzero) else 1
 
         requested = self.config.max_ingredients
@@ -219,7 +231,9 @@ class BayesianOptimizer:
             self.effective_max_ingredients = max(1, min(requested, observed_max))
 
         if len(observed_nonzero):
-            self.reference_ingredient_count = int(np.median(observed_nonzero))
+            self.reference_ingredient_count = int(
+                round(weighted_quantile(observed_nonzero, observed_nonzero_weights, 0.5))
+            )
         else:
             self.reference_ingredient_count = 1
 
@@ -239,7 +253,7 @@ class BayesianOptimizer:
         np.fill_diagonal(distances, np.inf)
         nearest_distances = np.min(distances, axis=1)
         self.support_radius = float(
-            np.quantile(nearest_distances, 0.9) * self.config.support_radius_scale
+            weighted_quantile(nearest_distances, context_weights, 0.9) * self.config.support_radius_scale
         )
     
     def _get_feature_bounds(self) -> List[Tuple[float, float]]:
@@ -458,14 +472,13 @@ class BayesianOptimizer:
         
         return result.x, -result.fun  # Return positive acquisition value
     
-    def optimize(self, X_observed: np.ndarray, y_observed: np.ndarray,
+    def optimize(self, observed_df: pd.DataFrame,
                  n_candidates: int = None) -> pd.DataFrame:
         """
         Generate optimized candidates using DE-based acquisition maximization.
         
         Args:
-            X_observed: Observed formulation features
-            y_observed: Observed viability values
+            observed_df: Observed context dataframe
             n_candidates: Number of candidates to generate
             
         Returns:
@@ -474,7 +487,9 @@ class BayesianOptimizer:
         if n_candidates is None:
             n_candidates = self.config.n_candidates
 
-        self._fit_search_context(X_observed)
+        X_observed = observed_df[self.feature_names].values
+        y_observed = observed_df['viability_percent'].values
+        self._fit_search_context(observed_df)
         
         if self.is_composite:
             # When using composite model, compute y_best from model predictions
@@ -496,12 +511,19 @@ class BayesianOptimizer:
             print(f"  Support radius: {self.support_radius:.2f} scaled units")
         print(f"  Diversity penalty: {self.config.diversity_penalty}, radius: {self.config.diversity_radius}")
 
+        seed_df = self.seed_context if self.seed_context is not None else observed_df
+        X_seed = seed_df[self.feature_names].values
         if self.is_composite:
-            observed_pred = self.gp.predict(X_observed)
+            observed_pred = self.gp.predict(X_seed)
         else:
-            observed_pred = self.gp.predict(self.scaler.transform(X_observed))
-        seed_order = np.argsort(observed_pred)[::-1]
-        seed_formulations = [X_observed[idx].copy() for idx in seed_order[: min(12, len(seed_order))]]
+            observed_pred = self.gp.predict(self.scaler.transform(X_seed))
+        seed_weights = (
+            seed_df['context_weight'].to_numpy(dtype=float)
+            if 'context_weight' in seed_df.columns
+            else np.ones(len(seed_df), dtype=float)
+        )
+        seed_order = np.lexsort((-seed_weights, -observed_pred))
+        seed_formulations = [X_seed[idx].copy() for idx in seed_order[: min(12, len(seed_order))]]
         
         candidates = []
         found_formulations = []  # Track found candidates for diversity penalty
@@ -580,8 +602,7 @@ class BayesianOptimizer:
         
         return pd.DataFrame(output_data)
     
-    def generate_dmso_free_candidates(self, X_observed: np.ndarray,
-                                       y_observed: np.ndarray,
+    def generate_dmso_free_candidates(self, observed_df: pd.DataFrame,
                                        n_candidates: int = 20) -> pd.DataFrame:
         """Generate low-DMSO candidates (<0.5% v/v)."""
         # Temporarily set DMSO bound to near-zero
@@ -593,7 +614,7 @@ class BayesianOptimizer:
             self.bounds[self.dmso_index] = (0.0, 0.07)
         
         try:
-            candidates = self.optimize(X_observed, y_observed, n_candidates)
+            candidates = self.optimize(observed_df, n_candidates)
         finally:
             self.max_dmso_molar = original_max
             if self.dmso_index >= 0:
@@ -665,35 +686,16 @@ def build_iteration_output_path(output_dir: str, base_filename: str,
     return os.path.join(output_dir, f"{stem}_{suffix}{ext}")
 
 
-def load_observed_formulations(project_root: str,
-                               feature_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
-    """Load literature plus any available wet-lab validation rows for BO context."""
-    literature_path = os.path.join(
-        project_root, 'data', 'processed', 'parsed_formulations.csv'
+def load_observed_formulations(project_root: str, resolution) -> pd.DataFrame:
+    """Load the active iteration's observed context for BO."""
+    return load_observed_context(
+        project_root=project_root,
+        feature_names=resolution.metadata['feature_names'],
+        model_method=resolution.model_method,
+        iteration=resolution.iteration,
+        iteration_dir=resolution.iteration_dir,
+        metadata=resolution.metadata,
     )
-    validation_path = os.path.join(
-        project_root, 'data', 'validation', 'validation_results.csv'
-    )
-
-    literature_df = pd.read_csv(literature_path)
-    literature_df = literature_df[literature_df['viability_percent'] <= 100].copy()
-    X_parts = [literature_df[feature_names].fillna(0.0).values]
-    y_parts = [literature_df['viability_percent'].values]
-
-    if os.path.exists(validation_path):
-        validation_df = pd.read_csv(validation_path)
-        validation_df = validation_df[validation_df['viability_measured'].notna()].copy()
-        if len(validation_df):
-            validation_features = validation_df.reindex(
-                columns=feature_names, fill_value=0.0
-            ).fillna(0.0)
-            X_parts.append(validation_features.values)
-            y_parts.append(validation_df['viability_measured'].values)
-            print(f"Loaded {len(validation_df)} wet-lab validation rows into BO context")
-
-    X_observed = np.vstack(X_parts)
-    y_observed = np.concatenate(y_parts)
-    return X_observed, y_observed
 
 
 # =============================================================================
@@ -732,8 +734,16 @@ def main():
     
     # Load literature + wet-lab observations for BO search context
     print("\nLoading observed formulations for BO context...")
-    X, y = load_observed_formulations(project_root, feature_names)
-    print(f"Loaded {len(X)} total observed formulations")
+    observed_df = load_observed_formulations(project_root, resolution)
+    print(f"Loaded {len(observed_df)} total observed rows")
+    if 'source' in observed_df.columns:
+        n_lit = int((observed_df['source'] == 'literature').sum())
+        n_wet = int((observed_df['source'] == 'wetlab').sum())
+        wet_weight = (
+            observed_df.loc[observed_df['source'] == 'wetlab', 'context_weight'].iloc[0]
+            if n_wet > 0 else 'N/A'
+        )
+        print(f"Observed sources: {n_lit} literature + {n_wet} wet lab (weight={wet_weight})")
     
     # Initialize optimizer
     config = BOConfig(
@@ -749,10 +759,10 @@ def main():
     print("-" * 40)
     
     print("\n1. General optimization (≤5% DMSO)...")
-    general_candidates = optimizer.optimize(X, y, n_candidates=20)
+    general_candidates = optimizer.optimize(observed_df, n_candidates=20)
     
     print("\n2. Low-DMSO optimization (<0.5% DMSO)...")
-    dmso_free_candidates = optimizer.generate_dmso_free_candidates(X, y, n_candidates=20)
+    dmso_free_candidates = optimizer.generate_dmso_free_candidates(observed_df, n_candidates=20)
     
     # Export results
     print("\n" + "-" * 40)
