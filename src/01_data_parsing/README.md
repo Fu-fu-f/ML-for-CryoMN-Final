@@ -102,7 +102,7 @@ formulation_id,viability_percent,dmso_percent,source_doi,dmso_M,trehalose_M,fbs_
 2,55.0,0.0,10.1186/s40824-023-00356-z,0.0,0.0,0.0,0.0,10.0,...
 ```
 
-## Current Statistics
+## Dataset Statistics
 
 - **Total formulations**: 198 unique (after duplicate averaging)
 - **Unique ingredients**: 34

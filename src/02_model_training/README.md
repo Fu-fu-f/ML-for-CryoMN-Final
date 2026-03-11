@@ -46,7 +46,7 @@ Features are automatically selected based on:
 
 ### Metrics
 
-| Metric | Description | Latest Value |
+| Metric | Description | Value |
 |--------|-------------|--------------|
 | CV RMSE | Cross-validation RMSE | 19.97 ± 2.85 |
 | CV R² | Cross-validation R² | 0.279 ± 0.088 |
@@ -68,7 +68,7 @@ Features are automatically selected based on:
 
 This module is primarily intended to be run as a CLI script. Because the source folders are numbered (`src/02_model_training`, etc.), direct imports like `from src.02_model_training...` are not valid Python syntax. If you need programmatic access, load the file by path with `importlib.util` or move the reusable code into a conventional package layout.
 
-## Current Model Stats
+## Model Stats
 
 - **Active features**: 21 ingredients
 - **Training samples**: 198 formulations

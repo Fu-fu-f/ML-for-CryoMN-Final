@@ -76,14 +76,14 @@ python filter_tested_candidates.py
 
 The script:
 - asks which iteration to inspect
-- uses the latest available candidate iteration when you press Enter on a blank prompt
+- uses the highest-numbered available candidate iteration when you press Enter on a blank prompt
 - checks both standard and BO candidate CSVs for that iteration
 - writes filtered outputs to `Untested/Iteration X/` as `*_untested.csv` and `*_untested_summary.txt`
 - matches formulations using the same rounded text precision shown in the candidate summaries
 
 ### ⚠️ Before Running Any Update Script
 
-> **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your current state first so you have a clean rollback point.
+> **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your working tree first so you have a clean rollback point.
 
 ## Validation CSV Format
 
@@ -136,7 +136,7 @@ ALPHA_WETLAB = 0.02      # Lower noise = more trusted  (50x trust ratio)
 
 ## Model Selection Behavior
 
-Each update script now stamps the trained iteration with explicit identity fields:
+Each update script stamps the trained iteration with explicit identity fields:
 - `iteration`
 - `iteration_dir`
 - `model_method`
@@ -148,22 +148,22 @@ Downstream scripts use the active metadata in different ways:
 
 - `update_model.py` and `update_model_weighted_simple.py` mark the active model as **standard GP**
 - `update_model_weighted_prior.py` marks the active model as **composite GP**
-- `03_optimization`, `05_bo_optimization`, and `06_explainability` now share the same iteration-aware resolver
+- `03_optimization`, `05_bo_optimization`, and `06_explainability` share the same iteration-aware resolver
 - the shared resolver validates metadata against iteration history and does **not** fall back automatically across model types
-- each update script now writes `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`
+- each update script writes `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`
 - `03`, `05`, and `06` all load that observed context first and reconstruct it on demand if it is missing
 
 Whenever an update script activates a newly trained iteration by replacing `models/model_metadata.json`, it prints a notice that the active metadata is being overwritten and identifies the target iteration/method.
 
 ## Output
 
-- Updated model in `models/iteration_N_<method>/`
-- Main model updated in `models/`
+- Trained checkpoint in `models/iteration_N_<method>/`
+- Active model mirror in `models/`
 - **Observed context** in `models/iteration_N_<method>/observed_context.csv` and `models/observed_context.csv`
-- **Legacy evaluation data** in `data/processed/evaluation_data.csv` (compatibility mirror written by `update_model_weighted_prior.py`)
+- **Compatibility evaluation data** in `data/processed/evaluation_data.csv` (mirror written by `update_model_weighted_prior.py`)
 - Iteration history in `data/validation/iteration_history.json`
 
-The canonical observed context CSV includes a `context_weight` column (1.0 for literature, weighted values for wet lab), a `source` column, and iteration identity fields. `03`, `05`, and `06` use this file as the source of truth for the active iteration. The legacy evaluation data CSV keeps the older `weight` column for prior-mean compatibility only.
+The canonical observed context CSV includes a `context_weight` column (1.0 for literature, weighted values for wet lab), a `source` column, and iteration identity fields. `03`, `05`, and `06` use this file as the source of truth for the active iteration. The compatibility evaluation data CSV keeps the `weight` column for prior-mean compatibility only.
 
 ## Iteration Tracking
 

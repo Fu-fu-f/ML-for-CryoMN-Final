@@ -2,7 +2,7 @@
 
 Machine learning pipeline for optimizing cryoprotective formulations for cryomicroneedle (CryoMN) technology.
 
-Current active checkpoint: `iteration_3_prior_mean` updated on 2026-03-11.
+Repository checkpoint: `iteration_3_prior_mean` (snapshot dated 2026-03-11).
 
 ## Goals
 
@@ -53,37 +53,37 @@ python src/06_explainability/explainability.py
 python filter_tested_candidates.py
 ```
 
-## Current Snapshot
+## Repository Snapshot
 
-As of 2026-03-11, the active model is the composite prior-mean correction checkpoint `iteration_3_prior_mean`.
+The snapshot dated 2026-03-11 uses the composite prior-mean correction checkpoint `iteration_3_prior_mean`.
 
-| Metric | Current value |
+| Metric | Snapshot value |
 |--------|---------------|
 | Wet-lab validation rows | 35 |
-| Latest wet-lab batch date | 2026-03-11 |
+| Wet-lab batch date in snapshot | 2026-03-11 |
 | Best validated viability | 79.09% |
 | Best validated formulation | 304.7mM ectoin + 1.55M ethylene glycol |
 | Mean wet-lab viability | 35.52% |
 | Median wet-lab viability | 31.90% |
 | Wet-lab runs at or above 50% viability | 11 |
 
-The current loop is converging on an ectoin + ethylene glycol region, with glycerol and serum/protein additives acting as secondary modifiers rather than replacing that core pair.
+This snapshot highlights convergence around an ectoin + ethylene glycol region, with glycerol and serum/protein additives acting as secondary modifiers rather than replacing that core pair.
 
 ## Active Model and Iterations
 
 - `src/04_validation_loop/*` saves each retrained checkpoint under `models/iteration_*`, updates `data/validation/iteration_history.json`, and then replaces the active root metadata in `models/model_metadata.json` with an explicit overwrite notice.
-- `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_explainability/explainability.py` now share the same iteration-aware resolver.
+- `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_explainability/explainability.py` share the same iteration-aware resolver.
 - `src/04_validation_loop/*` also writes a canonical observed-context artifact to `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`.
 - If root metadata is missing or inconsistent, these entry points prompt for an iteration number, reject nonsensical choices, and repair `models/model_metadata.json` only after telling you it is overwriting the metadata.
 - Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
 - `03_optimization`, `05_bo_optimization`, and `06_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
 - `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
 
-## Latest Results
+## Results Snapshot
 
 ### Wet-Lab Validation Signal
 
-The best measured wet-lab result so far is:
+The best measured wet-lab result in this snapshot is:
 
 - `79.09%` viability for `304.7mM ectoin + 1.55M ethylene glycol`
 
@@ -91,7 +91,7 @@ That same region remains the model's top BO target, which is a useful consistenc
 
 ### DE-Based Bayesian Optimization (`05_bo_optimization`)
 
-Latest general BO summary: `results/bo_candidates_general_iteration_3_prior_mean_summary.txt`
+General BO summary for this snapshot: `results/bo_candidates_general_iteration_3_prior_mean_summary.txt`
 
 | Rank | Formulation | Predicted viability |
 |------|-------------|---------------------|
@@ -111,7 +111,7 @@ After filtering out already validated formulations with `python filter_tested_ca
 | 3 | 314.5mM ectoin + 1.55M ethylene glycol | 77.0% ± 14.5% |
 | 4 | 280.0mM ectoin + 1.48M ethylene glycol + 0.2% hyaluronic acid + 20.4µM sucrose | 75.5% ± 16.7% |
 
-The filtered outputs are written to `Untested/Iteration X/`, where `X` is the iteration you choose or the latest iteration if you press Enter.
+The filtered outputs are written to `Untested/Iteration X/`, where `X` is the iteration you choose or the highest-numbered available candidate iteration if you press Enter.
 
 See `results/` for full candidate lists.
 
@@ -121,9 +121,9 @@ See `results/` for full candidate lists.
 
 Understanding which ingredients drive cell viability predictions is crucial for guiding wet lab experiments. The explainability module generates comprehensive visualizations:
 
-### Latest Explainability Set (`iteration_3_prior_mean`)
+### Explainability Outputs (`iteration_3_prior_mean`)
 
-The latest explainability outputs live in `results/explainability/iteration_3_prior_mean/`. The top-ranked features in the current model are `ethylene_glycol`, `glycerol`, `ectoin`, `dmso`, and `hsa`.
+The explainability outputs shown here live in `results/explainability/iteration_3_prior_mean/`. The top-ranked features in this checkpoint are `ethylene_glycol`, `glycerol`, `ectoin`, `dmso`, and `hsa`.
 
 #### SHAP Summary
 

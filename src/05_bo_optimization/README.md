@@ -18,8 +18,8 @@ python src/05_bo_optimization/bo_optimizer.py
 - **Observed context**: `models/<iteration_dir>/observed_context.csv` when available
 - **Fallback inputs**: `data/processed/parsed_formulations.csv` + `data/validation/validation_results.csv`
 
-This script now uses the same active-model resolver as `03_optimization`:
-- If the latest recorded iteration and `models/model_metadata.json` agree, `05` loads that iteration's artifacts directly.
+This script uses the same active-model resolver as `03_optimization`:
+- If `models/model_metadata.json` matches a recorded iteration, `05` loads that iteration's artifacts directly.
 - If metadata is missing, malformed, or points at the wrong iteration, `05` prompts for an iteration number.
 - If you choose a valid iteration during conflict recovery, `05` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.
 - If metadata says the model is composite but the composite artifacts are missing, the script stops. It does **not** fall back to the standard GP automatically.

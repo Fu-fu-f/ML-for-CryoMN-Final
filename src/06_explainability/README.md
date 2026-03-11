@@ -18,7 +18,7 @@ python src/06_explainability/explainability.py
 - `data/validation/iteration_history.json`
 - `models/iteration_*`
 
-`06_explainability` now uses the same iteration-aware resolver as `03_optimization` and `05_bo_optimization`. If the active metadata is missing or inconsistent, it prompts for an iteration number and repairs `models/model_metadata.json` with an explicit overwrite notice.
+`06_explainability` uses the same iteration-aware resolver as `03_optimization` and `05_bo_optimization`. If the active metadata is missing or inconsistent, it prompts for an iteration number and repairs `models/model_metadata.json` with an explicit overwrite notice.
 
 **Standard GP mode (literature-only):**
 - `models/gp_model.pkl`, `models/scaler.pkl`
@@ -35,7 +35,7 @@ Common:
 
 ## Output
 
-Artifacts are now written to an iteration-specific directory:
+Artifacts are written to an iteration-specific directory:
 - `results/explainability/<iteration_tag>/`
 
 `<iteration_tag>` comes from the resolved active model identity, for example:
