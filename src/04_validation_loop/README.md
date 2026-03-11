@@ -65,6 +65,22 @@ python src/04_validation_loop/update_model_weighted_simple.py
 python src/04_validation_loop/update_model_weighted_prior.py
 ```
 
+### Filter Out Already-Tested Candidates
+
+To compare saved candidate files against `data/validation/validation_results.csv` and
+print only the formulations that have not yet been tested:
+
+```bash
+python filter_tested_candidates.py
+```
+
+The script:
+- asks which iteration to inspect
+- uses the latest available candidate iteration when you press Enter on a blank prompt
+- checks both standard and BO candidate CSVs for that iteration
+- writes filtered outputs to `Untested/Iteration X/` as `*_untested.csv` and `*_untested_summary.txt`
+- matches formulations using the same rounded text precision shown in the candidate summaries
+
 ### ⚠️ Before Running Any Update Script
 
 > **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your current state first so you have a clean rollback point.

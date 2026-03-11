@@ -1,0 +1,67 @@
+================================================================================
+CryoMN Bayesian Optimization Candidates (Untested Only)
+Generated: 2026-03-11 20:11
+Source candidate file: bo_candidates_general_iteration_3_prior_mean.csv
+Wet-lab tested formulations removed: 10 of 20
+================================================================================
+
+Rank 2: 295.3mM ectoin + 1.67M ethylene_glycol
+  Acquisition Value: 84.6046
+  Predicted viability: 77.0% ± 15.2%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 3: 314.5mM ectoin + 1.55M ethylene_glycol
+  Acquisition Value: 84.2304
+  Predicted viability: 77.0% ± 14.5%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 4: 280.0mM ectoin + 1.48M ethylene_glycol + 0.2% hyaluronic_acid + 20.4µM sucrose
+  Acquisition Value: 83.8112
+  Predicted viability: 75.5% ± 16.7%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 5: 272.6mM ectoin + 1.46M ethylene_glycol + 3.7% fbs + 0.2% methylcellulose
+  Acquisition Value: 83.8088
+  Predicted viability: 75.1% ± 17.4%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 6: 287.3mM ectoin + 1.77M ethylene_glycol
+  Acquisition Value: 82.2745
+  Predicted viability: 73.8% ± 16.9%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 8: 208.6mM ectoin + 1.41M ethylene_glycol + 1.7% fbs + 174.3mM glycerol + 0.2% hsa + 0.3% human_serum
+  Acquisition Value: 79.7991
+  Predicted viability: 70.0% ± 19.5%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 10: 0.3% dextran + 307.7mM ectoin + 1.41M ethylene_glycol + 5.3% fbs + 117.3mM glycerol + 0.6% hsa
+  Acquisition Value: 77.8360
+  Predicted viability: 68.5% ± 18.6%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 11: 278.1mM ectoin + 1.43M ethylene_glycol + 345.6mM glycerol + 0.2% hes + 0.4% hsa + 0.1% human_serum
+  Acquisition Value: 76.9411
+  Predicted viability: 67.0% ± 19.8%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 19: 704.0mM dmso + 4.0% hsa + 4.0% human_serum
+  Acquisition Value: 54.3774
+  Predicted viability: 44.3% ± 20.2%
+  DMSO: 5.0%
+  Ingredients: 3
+
+Rank 20: 704.0mM dmso + 2.0% human_serum
+  Acquisition Value: 53.7300
+  Predicted viability: 43.8% ± 19.8%
+  DMSO: 5.0%
+  Ingredients: 2
+

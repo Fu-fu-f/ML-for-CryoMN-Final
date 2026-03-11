@@ -2,6 +2,8 @@
 
 Machine learning pipeline for optimizing cryoprotective formulations for cryomicroneedle (CryoMN) technology.
 
+Current active checkpoint: `iteration_3_prior_mean` updated on 2026-03-11.
+
 ## Goals
 
 1. **Minimize DMSO usage** (reduce toxicity)
@@ -46,7 +48,26 @@ python src/04_validation_loop/update_model_weighted_prior.py
 
 # 5. Explain model predictions (auto-detects composite model)
 python src/06_explainability/explainability.py
+
+# 6. Filter out already tested candidates
+python filter_tested_candidates.py
 ```
+
+## Current Snapshot
+
+As of 2026-03-11, the active model is the composite prior-mean correction checkpoint `iteration_3_prior_mean`.
+
+| Metric | Current value |
+|--------|---------------|
+| Wet-lab validation rows | 35 |
+| Latest wet-lab batch date | 2026-03-11 |
+| Best validated viability | 79.09% |
+| Best validated formulation | 304.7mM ectoin + 1.55M ethylene glycol |
+| Mean wet-lab viability | 35.52% |
+| Median wet-lab viability | 31.90% |
+| Wet-lab runs at or above 50% viability | 11 |
+
+The current loop is converging on an ectoin + ethylene glycol region, with glycerol and serum/protein additives acting as secondary modifiers rather than replacing that core pair.
 
 ## Active Model and Iterations
 
@@ -58,27 +79,39 @@ python src/06_explainability/explainability.py
 - `03_optimization`, `05_bo_optimization`, and `06_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
 - `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
 
-## Results
+## Latest Results
 
-### Random Sampling (`03_optimization`)
+### Wet-Lab Validation Signal
 
-| Category | Best Candidate | Predicted Viability |
-|----------|----------------|---------------------|
-| General (≤5% DMSO) | 1.83M EG + 52% FBS + 0.6% HES | 72.4% ± 23.6% |
-| Low-DMSO (<0.5%) | 2.07M ethylene glycol | 81.6% ± 20.8% |
+The best measured wet-lab result so far is:
 
-> **Key Finding**: The model predicts high ethylene glycol concentrations (~2M) are highly effective at very low or zero DMSO.
+- `79.09%` viability for `304.7mM ectoin + 1.55M ethylene glycol`
 
-### DE-based BO (`05_bo_optimization`)
+That same region remains the model's top BO target, which is a useful consistency check between prediction and validation.
 
-| Behavior | Description |
-|----------|-------------|
-| Search context | Uses iteration-aware observed context from literature + wet-lab rows, with analytic weights |
-| Default exploit step | Seeds the search with the best observed formulations under the active model |
-| Exploration step | Uses DE + UCB to generate unique nearby variants around high-value regions |
-| Sparsity | Caps ingredient count to the observed support by default instead of forcing 10-ingredient mixes |
+### DE-Based Bayesian Optimization (`05_bo_optimization`)
 
-> **Note**: DE-based BO now balances two goals: keep the best observed wet-lab winners in view, then explore nearby high-UCB variants instead of drifting into unrealistic out-of-distribution mixtures.
+Latest general BO summary: `results/bo_candidates_general_iteration_3_prior_mean_summary.txt`
+
+| Rank | Formulation | Predicted viability |
+|------|-------------|---------------------|
+| 1 | 304.7mM ectoin + 1.55M ethylene glycol | 78.2% ± 14.2% |
+| 2 | 295.3mM ectoin + 1.67M ethylene glycol | 77.0% ± 15.2% |
+| 3 | 314.5mM ectoin + 1.55M ethylene glycol | 77.0% ± 14.5% |
+| 4 | 280.0mM ectoin + 1.48M ethylene glycol + 0.2% hyaluronic acid + 20.4µM sucrose | 75.5% ± 16.7% |
+| 5 | 272.6mM ectoin + 1.46M ethylene glycol + 3.7% FBS + 0.2% methylcellulose | 75.1% ± 17.4% |
+
+### Untested BO Candidates
+
+After filtering out already validated formulations with `python filter_tested_candidates.py`, the leading untested BO candidates for iteration 3 are:
+
+| Rank | Untested formulation | Predicted viability |
+|------|----------------------|---------------------|
+| 2 | 295.3mM ectoin + 1.67M ethylene glycol | 77.0% ± 15.2% |
+| 3 | 314.5mM ectoin + 1.55M ethylene glycol | 77.0% ± 14.5% |
+| 4 | 280.0mM ectoin + 1.48M ethylene glycol + 0.2% hyaluronic acid + 20.4µM sucrose | 75.5% ± 16.7% |
+
+The filtered outputs are written to `Untested/Iteration X/`, where `X` is the iteration you choose or the latest iteration if you press Enter.
 
 See `results/` for full candidate lists.
 
@@ -88,23 +121,33 @@ See `results/` for full candidate lists.
 
 Understanding which ingredients drive cell viability predictions is crucial for guiding wet lab experiments. The explainability module generates comprehensive visualizations:
 
-### SHAP Importance
+### Latest Explainability Set (`iteration_3_prior_mean`)
 
-SHAP values reveal how each ingredient impacts individual predictions. High DMSO concentrations (pink dots) can have both positive and negative effects:
+The latest explainability outputs live in `results/explainability/iteration_3_prior_mean/`. The top-ranked features in the current model are `ethylene_glycol`, `glycerol`, `ectoin`, `dmso`, and `hsa`.
 
-![SHAP Summary](results/explainability/shap_summary.png)
+#### SHAP Summary
 
-### Acquisition Landscape
+![SHAP Summary](results/explainability/iteration_3_prior_mean/shap_summary.png)
+
+#### Feature Importance
+
+![Feature Importance](results/explainability/iteration_3_prior_mean/feature_importance.png)
+
+#### Acquisition Landscape
 
 The acquisition landscape defaults to **Upper Confidence Bound (UCB)**, highlighting the model's exploitation-exploration tradeoff:
 
-![Acquisition Landscape](results/explainability/acquisition_landscape.png)
+![Acquisition Landscape](results/explainability/iteration_3_prior_mean/acquisition_landscape.png)
 
-### Interaction Contours
+#### Interaction Contours
 
 Visualizing how pairs of top ingredients interact to affect viability:
 
-![Interaction Contours](results/explainability/interaction_contours.png)
+![Interaction Contours](results/explainability/iteration_3_prior_mean/interaction_contours.png)
+
+#### Uncertainty Analysis
+
+![Uncertainty Analysis](results/explainability/iteration_3_prior_mean/uncertainty_analysis.png)
 
 For detailed interpretation and additional visualizations, see [`src/06_explainability/README.md`](src/06_explainability/README.md).
 

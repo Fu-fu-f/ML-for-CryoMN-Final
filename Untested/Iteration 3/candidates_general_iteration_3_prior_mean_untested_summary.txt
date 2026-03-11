@@ -1,0 +1,72 @@
+================================================================================
+CryoMN Optimized Formulation Candidates (Untested Only)
+Generated: 2026-03-11 20:11
+Source candidate file: candidates_general_iteration_3_prior_mean.csv
+Wet-lab tested formulations removed: 7 of 20
+================================================================================
+
+Rank 7: 629.2mM ethylene_glycol + 429.5mM raffinose
+  Predicted viability: 41.8% ± 22.2%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 8: 30.1mM betaine + 1.83M glycerol + 4.7% hsa
+  Predicted viability: 39.6% ± 20.4%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 9: 0.5% hes + 86.5% human_serum
+  Predicted viability: 38.0% ± 23.3%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 10: 503.7mM ethylene_glycol + 762.7mM raffinose
+  Predicted viability: 36.8% ± 23.2%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 11: 320.9mM betaine + 188.0mM ethylene_glycol + 396.8mM propylene_glycol + 176.0mM raffinose + 412.3mM sucrose
+  Predicted viability: 36.6% ± 22.8%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 13: 4.3% hes + 78.3% human_serum
+  Predicted viability: 34.7% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 14: 2.5% dextran + 738.7mM glycerol + 58.2mM proline
+  Predicted viability: 34.6% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 15: 5.8% pvp + 353.4mM raffinose
+  Predicted viability: 34.1% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 16: 266.6mM betaine + 1.0% dextran + 233.3mM glycerol + 1.95M propylene_glycol + 588.7mM sucrose
+  Predicted viability: 34.0% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 17: 60.9% human_serum + 159.4mM proline
+  Predicted viability: 33.5% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 18: 485.3mM dmso + 132.4mM ethylene_glycol + 53.8% human_serum
+  Predicted viability: 33.4% ± 23.8%
+  DMSO: 3.4%
+  Ingredients: 3
+
+Rank 19: 524.7mM dmso + 756.9mM glycerol + 3.8% hsa + 1.15M propylene_glycol
+  Predicted viability: 33.4% ± 23.6%
+  DMSO: 3.7%
+  Ingredients: 4
+
+Rank 20: 19.8mM dmso + 58.6% fbs + 449.9mM raffinose
+  Predicted viability: 33.4% ± 23.7%
+  DMSO: 0.1%
+  Ingredients: 3
+
