@@ -558,7 +558,7 @@
     "model_method": "prior_mean_correction",
     "is_composite_model": true,
     "batch_dates": [
-      "2026-03-11"
+      "2026-03-10"
     ],
     "batch_rows": 6,
     "batch_metrics": {
@@ -681,7 +681,7 @@
             "predicted_viability": 33.73880974847606,
             "uncertainty": 24.521463236987195,
             "experiment_id": "EXP2101",
-            "experiment_date": "3/11/26",
+            "experiment_date": "3/10/26",
             "actual_viability": 28.99,
             "signature": "2.33M glycerol + 152.9mM proline + 182.1mM propylene_glycol"
           },
@@ -690,7 +690,7 @@
             "predicted_viability": 33.695666630251424,
             "uncertainty": 24.714013890211497,
             "experiment_id": "EXP2102",
-            "experiment_date": "3/11/26",
+            "experiment_date": "3/10/26",
             "actual_viability": 28.14,
             "signature": "493.5mM ectoin + 750.5mM propylene_glycol"
           },
@@ -699,7 +699,7 @@
             "predicted_viability": 33.49525836477387,
             "uncertainty": 24.697509742803497,
             "experiment_id": "EXP2103",
-            "experiment_date": "3/11/26",
+            "experiment_date": "3/10/26",
             "actual_viability": 51.61,
             "signature": "1.53M ethylene_glycol + 33.9% fbs + 1.8% hsa + 3.6% peg_3350 + 149.5mM proline + 7.2% pvp"
           },
@@ -708,7 +708,7 @@
             "predicted_viability": 33.44479580319595,
             "uncertainty": 24.658460951247665,
             "experiment_id": "EXP2104",
-            "experiment_date": "3/11/26",
+            "experiment_date": "3/10/26",
             "actual_viability": 53.4,
             "signature": "2.46M propylene_glycol + 399.1mM sucrose"
           },
@@ -717,7 +717,7 @@
             "predicted_viability": 33.27669821028809,
             "uncertainty": 24.680351460929533,
             "experiment_id": "EXP2106",
-            "experiment_date": "3/11/26",
+            "experiment_date": "3/10/26",
             "actual_viability": 34.8,
             "signature": "522.8mM dmso + 2.6% hsa + 6.6% peg_3350 + 1.02M propylene_glycol"
           }
@@ -758,27 +758,39 @@
     "timestamp": "2026-03-11T13:39:36.472392",
     "model_method": "prior_mean_correction",
     "is_composite_model": true,
-    "batch_dates": [],
-    "batch_rows": 0,
+    "batch_dates": [
+      "2026-03-12"
+    ],
+    "batch_rows": 8,
     "batch_metrics": {
-      "n_rows": 0,
-      "rmse": null,
-      "mae": null,
-      "r2": null,
-      "spearman_rho": null,
-      "kendall_tau": null,
-      "mean_uncertainty": null,
-      "coverage_1sigma": null,
-      "coverage_2sigma": null,
-      "hit_rate_ge_50": null,
-      "hit_rate_ge_70": null
+      "n_rows": 8,
+      "rmse": 21.0461,
+      "mae": 15.999,
+      "r2": -2.643,
+      "spearman_rho": 0.4762,
+      "kendall_tau": 0.3571,
+      "mean_uncertainty": 20.8853,
+      "coverage_1sigma": 0.75,
+      "coverage_2sigma": 0.875,
+      "hit_rate_ge_50": 0.625,
+      "hit_rate_ge_70": 0.75
     },
     "candidate_evaluation": [
       {
         "file": "bo_candidates_dmso_free_iteration_3_prior_mean.csv",
         "n_candidates": 20,
-        "n_tested_later": 0,
-        "tested_examples": [],
+        "n_tested_later": 1,
+        "tested_examples": [
+          {
+            "rank": 4,
+            "predicted_viability": 75.0336993613987,
+            "uncertainty": 17.403791927122253,
+            "experiment_id": "EXP3101",
+            "experiment_date": "3/12/26",
+            "actual_viability": 63.61,
+            "signature": "273.3mM ectoin + 1.48M ethylene_glycol + 182.7mM glycerol"
+          }
+        ],
         "top_k": {
           "top_3": {
             "tested_count": 0,
@@ -789,20 +801,20 @@
             "hit_rate_ge_70": null
           },
           "top_5": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.2,
+            "mean_actual_viability": 63.61,
+            "best_actual_viability": 63.61,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           },
           "top_10": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.1,
+            "mean_actual_viability": 63.61,
+            "best_actual_viability": 63.61,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           }
         }
       },
@@ -841,6 +853,114 @@
       {
         "file": "candidates_dmso_free_iteration_3_prior_mean.csv",
         "n_candidates": 20,
+        "n_tested_later": 2,
+        "tested_examples": [
+          {
+            "rank": 8,
+            "predicted_viability": 35.8226671507837,
+            "uncertainty": 23.605837510401415,
+            "experiment_id": "EXP3102",
+            "experiment_date": "3/12/26",
+            "actual_viability": 51.94,
+            "signature": "362.5mM ethylene_glycol + 2.44M propylene_glycol + 607.2mM sucrose"
+          },
+          {
+            "rank": 14,
+            "predicted_viability": 33.64815708271081,
+            "uncertainty": 22.99128380010228,
+            "experiment_id": "EXP3103",
+            "experiment_date": "3/12/26",
+            "actual_viability": 32.75,
+            "signature": "3.9% hsa + 1.15M propylene_glycol"
+          }
+        ],
+        "top_k": {
+          "top_3": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_5": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_10": {
+            "tested_count": 1,
+            "tested_fraction": 0.1,
+            "mean_actual_viability": 51.94,
+            "best_actual_viability": 51.94,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
+          }
+        }
+      },
+      {
+        "file": "candidates_general_iteration_3_prior_mean.csv",
+        "n_candidates": 20,
+        "n_tested_later": 0,
+        "tested_examples": [],
+        "top_k": {
+          "top_3": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_5": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_10": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          }
+        }
+      }
+    ]
+  },
+  {
+    "stage": 4,
+    "label": "iteration_4",
+    "iteration_dir": "iteration_4_prior_mean",
+    "timestamp": "2026-03-16T19:05:04.690495",
+    "model_method": "prior_mean_correction",
+    "is_composite_model": true,
+    "batch_dates": [],
+    "batch_rows": 0,
+    "batch_metrics": {
+      "n_rows": 0,
+      "rmse": null,
+      "mae": null,
+      "r2": null,
+      "spearman_rho": null,
+      "kendall_tau": null,
+      "mean_uncertainty": null,
+      "coverage_1sigma": null,
+      "coverage_2sigma": null,
+      "hit_rate_ge_50": null,
+      "hit_rate_ge_70": null
+    },
+    "candidate_evaluation": [
+      {
+        "file": "bo_candidates_dmso_free_iteration_4_prior_mean.csv",
+        "n_candidates": 20,
         "n_tested_later": 0,
         "tested_examples": [],
         "top_k": {
@@ -871,7 +991,71 @@
         }
       },
       {
-        "file": "candidates_general_iteration_3_prior_mean.csv",
+        "file": "bo_candidates_general_iteration_4_prior_mean.csv",
+        "n_candidates": 20,
+        "n_tested_later": 0,
+        "tested_examples": [],
+        "top_k": {
+          "top_3": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_5": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_10": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          }
+        }
+      },
+      {
+        "file": "candidates_dmso_free_iteration_4_prior_mean.csv",
+        "n_candidates": 20,
+        "n_tested_later": 0,
+        "tested_examples": [],
+        "top_k": {
+          "top_3": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_5": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          },
+          "top_10": {
+            "tested_count": 0,
+            "tested_fraction": 0.0,
+            "mean_actual_viability": null,
+            "best_actual_viability": null,
+            "hit_rate_ge_50": null,
+            "hit_rate_ge_70": null
+          }
+        }
+      },
+      {
+        "file": "candidates_general_iteration_4_prior_mean.csv",
         "n_candidates": 20,
         "n_tested_later": 0,
         "tested_examples": [],

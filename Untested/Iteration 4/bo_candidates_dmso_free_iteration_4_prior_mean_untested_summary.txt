@@ -1,0 +1,91 @@
+================================================================================
+CryoMN Bayesian Optimization Candidates (Untested Only)
+Generated: 2026-03-16 19:54
+Source candidate file: bo_candidates_dmso_free_iteration_4_prior_mean.csv
+Wet-lab tested formulations removed: 6 of 20
+================================================================================
+
+Rank 2: 11.0mM dmso + 309.9mM ectoin + 1.56M ethylene_glycol
+  Acquisition Value: 84.9458
+  Predicted viability: 77.7% ± 14.5%
+  DMSO: 0.1%
+  Ingredients: 6
+
+Rank 3: 311.6mM ectoin + 1.57M ethylene_glycol + 0.2% methylcellulose
+  Acquisition Value: 82.9588
+  Predicted viability: 75.0% ± 15.9%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 4: 331.6mM ectoin + 1.59M ethylene_glycol
+  Acquisition Value: 82.9106
+  Predicted viability: 74.8% ± 16.2%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 5: 25.7mM betaine + 305.0mM ectoin + 1.44M ethylene_glycol + 0.2% hsa + 24.6mM sucrose
+  Acquisition Value: 81.8501
+  Predicted viability: 73.8% ± 16.1%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 6: 295.8mM ectoin + 1.74M ethylene_glycol
+  Acquisition Value: 81.5837
+  Predicted viability: 73.2% ± 16.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 7: 12.0mM dmso + 154.0mM ectoin + 1.23M ethylene_glycol
+  Acquisition Value: 79.8200
+  Predicted viability: 72.7% ± 14.2%
+  DMSO: 0.1%
+  Ingredients: 6
+
+Rank 9: 321.4mM ectoin + 1.34M ethylene_glycol
+  Acquisition Value: 80.0657
+  Predicted viability: 71.3% ± 17.6%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 11: 272.8mM ectoin + 1.73M ethylene_glycol
+  Acquisition Value: 77.8679
+  Predicted viability: 69.0% ± 17.8%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 12: 154.6mM ectoin + 1.13M ethylene_glycol + 5.8% fbs
+  Acquisition Value: 76.6777
+  Predicted viability: 68.6% ± 16.1%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 13: 316.1mM ectoin + 1.48M ethylene_glycol + 170.0mM glycerol + 0.2% hsa + 0.1% peg_3350 + 112.7mM raffinose
+  Acquisition Value: 77.0326
+  Predicted viability: 68.4% ± 17.2%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 17: 70.0mM dmso
+  Acquisition Value: 43.8511
+  Predicted viability: 34.2% ± 19.3%
+  DMSO: 0.5%
+  Ingredients: 1
+
+Rank 18: 70.0mM dmso + 2.0% fbs
+  Acquisition Value: 43.5283
+  Predicted viability: 33.9% ± 19.3%
+  DMSO: 0.5%
+  Ingredients: 2
+
+Rank 19: 70.0mM dmso + 10.0% fbs
+  Acquisition Value: 42.3119
+  Predicted viability: 32.5% ± 19.5%
+  DMSO: 0.5%
+  Ingredients: 2
+
+Rank 20: 70.0mM dmso + 100.0mM sucrose
+  Acquisition Value: 28.1688
+  Predicted viability: 17.3% ± 21.8%
+  DMSO: 0.5%
+  Ingredients: 2
+

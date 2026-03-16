@@ -1,0 +1,105 @@
+================================================================================
+CryoMN Optimized Formulation Candidates
+Generated: 2026-03-16 19:06
+================================================================================
+
+Rank 1: 304.7mM ectoin + 1.55M ethylene_glycol
+  Predicted viability: 77.9% ± 14.2%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 2: 143.1mM ectoin + 1.28M ethylene_glycol
+  Predicted viability: 72.4% ± 13.8%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 3: 161.2mM ectoin + 1.05M ethylene_glycol
+  Predicted viability: 69.4% ± 13.8%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 4: 34.7% fbs + 2.35M glycerol + 6.0% hsa
+  Predicted viability: 62.8% ± 13.1%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 5: 975.7mM ethylene_glycol + 8.5% hsa + 67.6mM proline
+  Predicted viability: 52.9% ± 12.5%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 6: 362.5mM ethylene_glycol + 2.44M propylene_glycol + 607.2mM sucrose
+  Predicted viability: 51.6% ± 14.2%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 7: 88.5mM betaine + 75.6% human_serum
+  Predicted viability: 39.0% ± 23.6%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 8: 2.5% dextran + 758.3mM glycerol
+  Predicted viability: 38.0% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 9: 57.6mM ectoin + 2.21M ethylene_glycol + 55.9% fbs + 0.0% hyaluronic_acid + 0.5% peg_3350
+  Predicted viability: 37.7% ± 23.7%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 10: 51.9mM dmso + 1.5% hes + 1.4% peg_3350 + 111.5mM proline + 938.2mM propylene_glycol + 2.1% pvp
+  Predicted viability: 37.6% ± 23.5%
+  DMSO: 0.4%
+  Ingredients: 6
+
+Rank 11: 1.73M ethylene_glycol + 7.3% hsa
+  Predicted viability: 37.3% ± 11.1%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 12: 3.3% dextran + 1.39M ethylene_glycol + 134.0mM trehalose
+  Predicted viability: 36.7% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 13: 2.23M ethylene_glycol + 33.5% human_serum
+  Predicted viability: 36.7% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 14: 4.8% peg_3350 + 60.8mM proline
+  Predicted viability: 36.6% ± 22.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 15: 76.6mM betaine + 139.0mM ethylene_glycol + 58.2% fbs + 64.5% human_serum + 4.8% pvp
+  Predicted viability: 36.6% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 16: 12.8mM dmso + 2.4% hsa + 1.1% methylcellulose + 460.6mM sucrose + 97.3mM trehalose
+  Predicted viability: 36.5% ± 23.7%
+  DMSO: 0.1%
+  Ingredients: 5
+
+Rank 17: 2.4% dextran + 25.6mM dmso + 318.2mM proline
+  Predicted viability: 36.5% ± 23.8%
+  DMSO: 0.2%
+  Ingredients: 3
+
+Rank 18: 399.4mM betaine + 1.2% dextran + 814.3mM ethylene_glycol + 97.7mM trehalose
+  Predicted viability: 36.5% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 19: 833.9mM ethylene_glycol + 2.34M glycerol + 2.6% hsa + 26.2% human_serum
+  Predicted viability: 36.4% ± 23.8%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 20: 133.2mM betaine + 2.24M creatine + 34.3mM dmso + 414.5mM ectoin + 2.18M ethylene_glycol
+  Predicted viability: 36.4% ± 23.8%
+  DMSO: 0.2%
+  Ingredients: 5
+
