@@ -190,6 +190,7 @@ class BayesianOptimizer:
         
         # Set feature bounds
         self.bounds = self._get_feature_bounds()
+        self._sync_bounds_cache()
         self.effective_max_ingredients = len(self.feature_names)
         self.reference_ingredient_count = 1
         self.support_scaler = self._get_support_scaler()
@@ -198,6 +199,12 @@ class BayesianOptimizer:
         self.seed_context: Optional[pd.DataFrame] = None
         
         np.random.seed(self.config.random_seed)
+
+    def _sync_bounds_cache(self):
+        """Cache bounds as arrays for vectorized clipping and penalties."""
+        self.bound_lows = np.array([low for low, _ in self.bounds], dtype=float)
+        self.bound_highs = np.array([high for _, high in self.bounds], dtype=float)
+        self.bound_ranges = np.maximum(self.bound_highs - self.bound_lows, 1e-6)
 
     def _get_support_scaler(self):
         """Return the scaler used to measure distance from observed support."""
@@ -314,10 +321,7 @@ class BayesianOptimizer:
 
     def _clip_to_bounds(self, x: np.ndarray) -> np.ndarray:
         """Clip a formulation to the configured feature bounds."""
-        x_clipped = x.copy()
-        for idx, (low, high) in enumerate(self.bounds):
-            x_clipped[idx] = np.clip(x_clipped[idx], low, high)
-        return x_clipped
+        return np.clip(np.asarray(x, dtype=float), self.bound_lows, self.bound_highs)
 
     def _build_initial_population(self,
                                   seed_points: Optional[List[np.ndarray]],
@@ -351,6 +355,89 @@ class BayesianOptimizer:
             population.append(self._sparsify(random_point))
 
         return np.array(population[:population_size])
+
+    def _normalize_population_input(self, x: np.ndarray) -> Tuple[np.ndarray, bool]:
+        """
+        Normalize scalar or vectorized DE objective inputs to row-major 2D arrays.
+        """
+        arr = np.asarray(x, dtype=float)
+        if arr.ndim == 1:
+            return arr.reshape(1, -1), True
+        if arr.ndim != 2:
+            raise ValueError(f"Expected a 1D or 2D array, got shape {arr.shape}")
+        if arr.shape[1] == len(self.bounds):
+            return arr, False
+        if arr.shape[0] == len(self.bounds):
+            return arr.T, False
+        raise ValueError(f"Cannot align input with {len(self.bounds)} features: shape {arr.shape}")
+
+    def _clip_to_bounds_batch(self, X: np.ndarray) -> np.ndarray:
+        """Clip a batch of formulations to the configured bounds."""
+        return np.clip(np.asarray(X, dtype=float), self.bound_lows, self.bound_highs)
+
+    def _sparsify_batch(self, X: np.ndarray) -> np.ndarray:
+        """Vectorized sparsification used inside the DE objective."""
+        X_sparse = self._clip_to_bounds_batch(X).copy()
+        if self.effective_max_ingredients >= X_sparse.shape[1]:
+            return X_sparse
+
+        nonzero_mask = np.abs(X_sparse) > 1e-6
+        nonzero_counts = nonzero_mask.sum(axis=1)
+        for row_idx in np.where(nonzero_counts > self.effective_max_ingredients)[0]:
+            nonzero_idx = np.where(nonzero_mask[row_idx])[0]
+            sorted_idx = nonzero_idx[np.argsort(np.abs(X_sparse[row_idx, nonzero_idx]))]
+            overflow = nonzero_counts[row_idx] - self.effective_max_ingredients
+            X_sparse[row_idx, sorted_idx[:overflow]] = 0.0
+        return X_sparse
+
+    def _predict_batch(self, X: np.ndarray, return_std: bool = False):
+        """Predict a batch of candidate formulations with one scaler/model call."""
+        if self.is_composite:
+            return self.gp.predict(X, return_std=return_std)
+
+        X_scaled = self.scaler.transform(X)
+        return self.gp.predict(X_scaled, return_std=return_std)
+
+    def _acquisition_from_predictions(self, mean: np.ndarray, std: np.ndarray,
+                                      y_best: float) -> np.ndarray:
+        """Compute the configured acquisition function from batched predictions."""
+        mean = np.asarray(mean, dtype=float)
+        std = np.asarray(std, dtype=float)
+        if self.config.acquisition.lower() == 'ei':
+            safe_std = np.maximum(std, 1e-12)
+            z = (mean - y_best - self.config.xi) / safe_std
+            ei = (mean - y_best - self.config.xi) * norm.cdf(z) + safe_std * norm.pdf(z)
+            ei[std < 1e-9] = 0.0
+            return ei
+        return mean + self.config.kappa * std
+
+    def _complexity_penalty_batch(self, X: np.ndarray) -> np.ndarray:
+        """Vectorized complexity penalty over a population."""
+        n_ing = np.sum(np.abs(X) > 1e-6, axis=1)
+        excess = np.maximum(0, n_ing - self.reference_ingredient_count)
+        return self.config.sparsity_penalty * excess.astype(float)
+
+    def _support_penalty_batch(self, X: np.ndarray) -> np.ndarray:
+        """Vectorized support penalty over a population."""
+        if self.observed_support_scaled is None or not np.isfinite(self.support_radius):
+            return np.zeros(len(X), dtype=float)
+
+        x_scaled = self.support_scaler.transform(X)
+        diffs = self.observed_support_scaled[None, :, :] - x_scaled[:, None, :]
+        min_distance = np.min(np.linalg.norm(diffs, axis=2), axis=1)
+        overshoot = np.maximum(0.0, min_distance - self.support_radius)
+        return self.config.support_penalty * overshoot * overshoot
+
+    def _local_penalizer_batch(self, X: np.ndarray, found_candidates: List[np.ndarray]) -> np.ndarray:
+        """Vectorized local penalization used to diversify batch BO candidates."""
+        if not found_candidates:
+            return np.zeros(len(X), dtype=float)
+
+        previous = np.asarray(found_candidates, dtype=float)
+        length_scale = np.maximum(self.bound_ranges * self.config.diversity_radius, 1e-6)
+        diffs = (X[:, None, :] - previous[None, :, :]) / length_scale
+        dist_sq = np.sum(diffs ** 2, axis=2)
+        return self.config.diversity_penalty * np.exp(-0.5 * dist_sq).sum(axis=1)
     
     def _local_penalizer(self, x: np.ndarray, found_candidates: List[np.ndarray]) -> float:
         """
@@ -364,23 +451,9 @@ class BayesianOptimizer:
         Returns:
             Penalty value (higher = more repulsion)
         """
-        if not found_candidates:
-            return 0.0
-        
-        # Compute characteristic length scale from feature bounds
-        ranges = np.array([b[1] - b[0] for b in self.bounds])
-        ranges = np.maximum(ranges, 1e-6)  # Avoid division by zero
-        length_scale = ranges * self.config.diversity_radius
-        
-        penalty = 0.0
-        for prev in found_candidates:
-            # Normalized squared distance
-            diff = (x - prev) / length_scale
-            dist_sq = np.sum(diff ** 2)
-            # Gaussian repulsion
-            penalty += self.config.diversity_penalty * np.exp(-0.5 * dist_sq)
-        
-        return penalty
+        return float(self._local_penalizer_batch(
+            x.reshape(1, -1), found_candidates
+        )[0])
 
     def _is_duplicate(self, x: np.ndarray, found_candidates: List[np.ndarray]) -> bool:
         """Return True when a candidate matches an existing formulation closely."""
@@ -389,21 +462,8 @@ class BayesianOptimizer:
     def _evaluate_candidate(self, x: np.ndarray, y_best: float) -> Dict[str, float]:
         """Evaluate one formulation and package it for ranking/export."""
         x_eval = self._sparsify(self._clip_to_bounds(x))
-        x_reshaped = x_eval.reshape(1, -1)
-        if self.is_composite:
-            pred_mean, pred_std = self.gp.predict(x_reshaped, return_std=True)
-        else:
-            x_scaled = self.scaler.transform(x_reshaped)
-            pred_mean, pred_std = self.gp.predict(x_scaled, return_std=True)
-
-        if self.config.acquisition.lower() == 'ei':
-            pure_acq = expected_improvement(
-                x_eval, self.gp, self.scaler, y_best, self.config.xi, self.is_composite
-            )
-        else:
-            pure_acq = upper_confidence_bound(
-                x_eval, self.gp, self.scaler, self.config.kappa, self.is_composite
-            )
+        pred_mean, pred_std = self._predict_batch(x_eval.reshape(1, -1), return_std=True)
+        pure_acq = self._acquisition_from_predictions(pred_mean, pred_std, y_best)[0]
 
         dmso_molar = x_eval[self.dmso_index] if self.dmso_index >= 0 else 0
         dmso_percent = dmso_molar * 78.13 / (1.10 * 10)
@@ -415,36 +475,40 @@ class BayesianOptimizer:
             'dmso_percent': dmso_percent,
             'n_ingredients': count_nonzero(x_eval),
         }
-    
+
+    def _objective_batch(self, X: np.ndarray, y_best: float,
+                         found_candidates: List[np.ndarray] = None) -> np.ndarray:
+        """Vectorized objective over one DE population."""
+        X_sparse = self._sparsify_batch(X)
+        pred_mean, pred_std = self._predict_batch(X_sparse, return_std=True)
+        acq_val = self._acquisition_from_predictions(pred_mean, pred_std, y_best)
+
+        penalty = np.zeros(len(X_sparse), dtype=float)
+        if self.dmso_index >= 0:
+            penalty += np.maximum(0.0, X_sparse[:, self.dmso_index] - self.max_dmso_molar) * 50.0
+        penalty += self._complexity_penalty_batch(X_sparse)
+        penalty += self._support_penalty_batch(X_sparse)
+        if found_candidates:
+            penalty += self._local_penalizer_batch(X_sparse, found_candidates)
+
+        return -acq_val + penalty
+
     def _objective_with_penalty(self, x: np.ndarray, y_best: float,
                                 found_candidates: List[np.ndarray] = None) -> float:
         """
         Objective function for DE: negative acquisition value + constraint penalties + diversity penalty.
         """
-        # Sparsify first to enforce ingredient constraint
-        x_sparse = self._sparsify(x)
-        
-        # Calculate acquisition value on sparsified formulation
-        if self.config.acquisition.lower() == 'ei':
-            acq_val = expected_improvement(x_sparse, self.gp, self.scaler, y_best, self.config.xi, self.is_composite)
-        else:
-            acq_val = upper_confidence_bound(x_sparse, self.gp, self.scaler, self.config.kappa, self.is_composite)
-        
-        # We negate the acquisition value because DE minimizes
-        neg_acq = -acq_val
-        
-        # Soft penalty for DMSO (in case it slightly exceeds)
-        penalty = 0.0
-        if self.dmso_index >= 0 and x_sparse[self.dmso_index] > self.max_dmso_molar:
-            penalty += (x_sparse[self.dmso_index] - self.max_dmso_molar) * 50.0
-        penalty += self._complexity_penalty(x_sparse)
-        penalty += self._support_penalty(x_sparse)
-        
-        # Batch diversity penalty: repel from previously found candidates
-        if found_candidates:
-            penalty += self._local_penalizer(x_sparse, found_candidates)
-        
-        return neg_acq + penalty
+        X, _ = self._normalize_population_input(x)
+        return float(self._objective_batch(X, y_best, found_candidates)[0])
+
+    def _objective_for_de(self, x: np.ndarray, y_best: float,
+                          found_candidates: List[np.ndarray] = None):
+        """Dispatch scalar and vectorized DE objective calls to the batched implementation."""
+        X, is_scalar = self._normalize_population_input(x)
+        objective_values = self._objective_batch(X, y_best, found_candidates)
+        if is_scalar:
+            return float(objective_values[0])
+        return objective_values
     
     def _run_de_single(self, y_best: float, seed: int,
                        found_candidates: List[np.ndarray] = None,
@@ -461,7 +525,7 @@ class BayesianOptimizer:
             Tuple of (best formulation, acquisition value)
         """
         result = differential_evolution(
-            func=lambda x: self._objective_with_penalty(x, y_best, found_candidates),
+            func=lambda x: self._objective_for_de(x, y_best, found_candidates),
             bounds=self.bounds,
             maxiter=self.config.de_maxiter,
             popsize=self.config.de_popsize,
@@ -469,6 +533,8 @@ class BayesianOptimizer:
             init=self._build_initial_population(seed_points, seed),
             polish=True,  # Use L-BFGS-B to polish the result
             disp=False,
+            updating='deferred',
+            vectorized=True,
         )
         
         return result.x, -result.fun  # Return positive acquisition value
@@ -613,6 +679,7 @@ class BayesianOptimizer:
         if self.dmso_index >= 0:
             original_bound = self.bounds[self.dmso_index]
             self.bounds[self.dmso_index] = (0.0, 0.07)
+            self._sync_bounds_cache()
         
         try:
             candidates = self.optimize(observed_df, n_candidates)
@@ -620,6 +687,7 @@ class BayesianOptimizer:
             self.max_dmso_molar = original_max
             if self.dmso_index >= 0:
                 self.bounds[self.dmso_index] = original_bound
+                self._sync_bounds_cache()
         
         return candidates
 
