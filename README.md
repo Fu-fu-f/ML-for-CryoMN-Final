@@ -58,6 +58,9 @@ python src/06_evaluation_explainability/evaluate_iterations.py
 python src/07_next_formulations/next_formulations.py
 ```
 
+> [!CAUTION]
+> `python src/05_bo_optimization/bo_optimizer.py` is a long-running optimization step. It evaluates repeated Differential Evolution searches for both general and low-DMSO candidate batches, and it prints live DE-search status while the script is running.
+
 ## Repository Snapshot
 
 The snapshot dated 2026-03-16 uses the composite prior-mean correction checkpoint `iteration_4_prior_mean`.

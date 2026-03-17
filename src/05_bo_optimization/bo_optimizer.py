@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import threading
+import time
 from typing import Tuple, Dict, List, Optional
 from datetime import datetime
 from dataclasses import dataclass
@@ -145,6 +147,64 @@ def dmso_constraint(x: np.ndarray, dmso_index: int, max_dmso_molar: float) -> fl
     if dmso_index < 0:
         return 1.0  # No DMSO feature, constraint satisfied
     return max_dmso_molar - x[dmso_index]
+
+
+class ProgressSpinner:
+    """Lightweight terminal spinner for long-running DE search."""
+
+    def __init__(self, label: str):
+        self.label = label
+        self.enabled = sys.stdout.isatty()
+        self._frames = ('|', '/', '-', '\\')
+        self._status = "starting"
+        self._stop_event = threading.Event()
+        self._lock = threading.Lock()
+        self._thread: Optional[threading.Thread] = None
+        self._start_time = 0.0
+
+    def start(self):
+        """Start the spinner in a background thread."""
+        if not self.enabled:
+            return
+        self._start_time = time.perf_counter()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def update(self, status: str):
+        """Update the spinner status line."""
+        with self._lock:
+            self._status = status
+
+    def stop(self, final_message: str):
+        """Stop the spinner and print a final status line."""
+        if not self.enabled:
+            print(final_message)
+            return
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join()
+        self.clear()
+        print(final_message)
+
+    def clear(self):
+        """Clear the current spinner line."""
+        if not self.enabled:
+            return
+        sys.stdout.write("\r" + " " * 120 + "\r")
+        sys.stdout.flush()
+
+    def _run(self):
+        frame_index = 0
+        while not self._stop_event.wait(0.15):
+            with self._lock:
+                status = self._status
+            elapsed = time.perf_counter() - self._start_time
+            frame = self._frames[frame_index % len(self._frames)]
+            frame_index += 1
+            sys.stdout.write(
+                f"\r[{frame}] {self.label}: {status} | elapsed {elapsed:6.1f}s"
+            )
+            sys.stdout.flush()
 
 
 # =============================================================================
@@ -540,7 +600,8 @@ class BayesianOptimizer:
         return result.x, -result.fun  # Return positive acquisition value
     
     def optimize(self, observed_df: pd.DataFrame,
-                 n_candidates: int = None) -> pd.DataFrame:
+                 n_candidates: int = None,
+                 run_label: str = "DE optimization") -> pd.DataFrame:
         """
         Generate optimized candidates using DE-based acquisition maximization.
         
@@ -605,9 +666,17 @@ class BayesianOptimizer:
             found_formulations.append(seed_candidate['formulation'].copy())
             if len(candidates) >= n_candidates:
                 break
+
+        print(f"  Seeded {len(candidates)}/{n_candidates} candidates from observed formulations")
         
         attempt = 0
         max_attempts = max(n_candidates * 10, 20)
+        spinner = ProgressSpinner(run_label)
+        if len(candidates) < n_candidates:
+            spinner.start()
+            spinner.update(
+                f"{len(candidates)}/{n_candidates} candidates | DE attempt 1/{max_attempts}"
+            )
         while len(candidates) < n_candidates and attempt < max_attempts:
             seed = self.config.random_seed + attempt
             x_opt, _ = self._run_de_single(
@@ -629,15 +698,34 @@ class BayesianOptimizer:
                     x_opt[idx] = 0.0
 
             if self._is_duplicate(x_opt, found_formulations):
+                if len(candidates) < n_candidates and attempt < max_attempts:
+                    spinner.update(
+                        f"{len(candidates)}/{n_candidates} candidates | DE attempt {attempt + 1}/{max_attempts}"
+                    )
                 continue
             
             candidates.append(self._evaluate_candidate(x_opt, y_best))
             
             # Track this candidate for diversity penalty in subsequent DE runs
             found_formulations.append(x_opt.copy())
+
+            if len(candidates) < n_candidates and attempt < max_attempts:
+                spinner.update(
+                    f"{len(candidates)}/{n_candidates} candidates | DE attempt {attempt + 1}/{max_attempts}"
+                )
             
             if len(candidates) % 5 == 0:
+                spinner.clear()
                 print(f"  Generated {len(candidates)}/{n_candidates} candidates...")
+
+        if len(candidates) < n_candidates:
+            spinner.stop(
+                f"  {run_label}: finished with {len(candidates)}/{n_candidates} candidates after {attempt} DE attempts"
+            )
+        elif attempt > 0:
+            spinner.stop(
+                f"  {run_label}: finished with {len(candidates)}/{n_candidates} candidates after {attempt} DE attempts"
+            )
 
         if len(candidates) < n_candidates:
             print(
@@ -682,7 +770,11 @@ class BayesianOptimizer:
             self._sync_bounds_cache()
         
         try:
-            candidates = self.optimize(observed_df, n_candidates)
+            candidates = self.optimize(
+                observed_df,
+                n_candidates,
+                run_label="Low-DMSO DE search",
+            )
         finally:
             self.max_dmso_molar = original_max
             if self.dmso_index >= 0:
@@ -806,7 +898,11 @@ def main():
     print("-" * 40)
     
     print("\n1. General optimization (≤5% DMSO)...")
-    general_candidates = optimizer.optimize(observed_df, n_candidates=20)
+    general_candidates = optimizer.optimize(
+        observed_df,
+        n_candidates=20,
+        run_label="General DE search",
+    )
     
     print("\n2. Low-DMSO optimization (<0.5% DMSO)...")
     dmso_free_candidates = optimizer.generate_dmso_free_candidates(observed_df, n_candidates=20)

@@ -11,6 +11,9 @@ cd "/path/to/project"
 python src/05_bo_optimization/bo_optimizer.py
 ```
 
+> [!CAUTION]
+> `05_bo_optimization` can take a while to finish because it runs repeated Differential Evolution searches for both the general and low-DMSO candidate sets. The script prints live DE-search status while it is running, including candidate count, DE attempt count, and elapsed time.
+
 ## Input
 
 - **Model registry**: `models/model_metadata.json` + `data/validation/iteration_history.json`
