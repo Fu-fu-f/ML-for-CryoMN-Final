@@ -36,13 +36,14 @@ NEXT_FORMULATIONS_DIR = RESULTS_DIR / "next_formulations"
 VALIDATION_PATH = PROJECT_ROOT / "data" / "validation" / "validation_results.csv"
 VALIDATION_LOOP_DIR = PROJECT_ROOT / "src" / "04_validation_loop"
 BO_DIR = PROJECT_ROOT / "src" / "05_bo_optimization"
+HELPER_DIR = PROJECT_ROOT / "src" / "helper"
 
-for path in [PROJECT_ROOT, VALIDATION_LOOP_DIR, BO_DIR]:
+for path in [PROJECT_ROOT, VALIDATION_LOOP_DIR, BO_DIR, HELPER_DIR]:
     path_str = str(path)
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from filter_tested_candidates import format_formulation  # noqa: E402
+from formulation_formatting import format_formulation  # noqa: E402
 from update_model_weighted_prior import CompositeGP  # noqa: F401,E402
 from bo_optimizer import BOConfig, BayesianOptimizer  # noqa: E402
 

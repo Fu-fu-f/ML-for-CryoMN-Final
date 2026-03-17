@@ -41,14 +41,20 @@ RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 VALIDATION_PATH = os.path.join(PROJECT_ROOT, "data", "validation", "validation_results.csv")
 OUTPUT_DIR = os.path.join(RESULTS_DIR, "evaluation")
 PLOT_PATH = os.path.join(OUTPUT_DIR, "stage_performance.png")
+HELPER_DIR = os.path.join(PROJECT_ROOT, "src", "helper")
+VALIDATION_LOOP_DIR = os.path.join(PROJECT_ROOT, "src", "04_validation_loop")
 
 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
+if HELPER_DIR not in sys.path:
+    sys.path.insert(0, HELPER_DIR)
+if VALIDATION_LOOP_DIR not in sys.path:
+    sys.path.insert(0, VALIDATION_LOOP_DIR)
 
-from filter_tested_candidates import format_formulation  # noqa: E402
+from formulation_formatting import format_formulation  # noqa: E402
 from update_model_weighted_prior import CompositeGP  # noqa: F401,E402
 
 

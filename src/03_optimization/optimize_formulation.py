@@ -28,6 +28,7 @@ _helper_dir = os.path.join(os.path.dirname(_script_dir), 'helper')
 if _helper_dir not in sys.path:
     sys.path.insert(0, _helper_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
+from formulation_formatting import format_formulation  # noqa: E402
 from observed_context import load_observed_context  # noqa: E402
 
 # =============================================================================
@@ -436,31 +437,6 @@ class FormulationOptimizer:
 # =============================================================================
 # RESULTS EXPORT
 # =============================================================================
-
-def format_formulation(row: pd.Series, feature_names: List[str]) -> str:
-    """Format a formulation as human-readable string."""
-    parts = []
-    
-    for name in feature_names:
-        if name in row and row[name] > 1e-6:
-            # Handle both _M (molar) and _pct (percentage) suffixes
-            if name.endswith('_pct'):
-                clean_name = name.replace('_pct', '')
-                conc = row[name]
-                parts.append(f"{conc:.1f}% {clean_name}")
-            else:
-                clean_name = name.replace('_M', '')
-                conc = row[name]
-                # Format concentration appropriately for molar units
-                if conc >= 1.0:
-                    parts.append(f"{conc:.2f}M {clean_name}")
-                elif conc >= 0.001:
-                    parts.append(f"{conc*1000:.1f}mM {clean_name}")
-                else:
-                    parts.append(f"{conc*1e6:.1f}µM {clean_name}")
-    
-    return ' + '.join(parts)
-
 
 def export_candidates(candidates_df: pd.DataFrame, feature_names: List[str],
                       output_path: str):

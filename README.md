@@ -39,23 +39,22 @@ python src/01_data_parsing/parse_formulations.py
 # 2. Train GP model
 python src/02_model_training/train_gp_model.py
 
-# 3. Generate candidates (choose one)
+# 3. Generate candidates
 python src/03_optimization/optimize_formulation.py      # Fast random sampling, iteration-aware
 python src/05_bo_optimization/bo_optimizer.py          # Proper BO with DE
 
 # 4. Integrate wet lab results (after experiments)
+python src/04_validation_loop/update_model.py
+python src/04_validation_loop/update_model_weighted_simple.py
 python src/04_validation_loop/update_model_weighted_prior.py
 
 # 5. Explain model predictions (auto-detects composite model)
-python src/06_explainability/explainability.py
+python src/06_evaluation_explainability/explainability.py
 
-# 6. Filter out already tested candidates
-python filter_tested_candidates.py
+# 6. Evaluate frozen stages against their wet-lab batches
+python src/06_evaluation_explainability/evaluate_iterations.py
 
-# 7. Evaluate frozen stages against their wet-lab batches
-python src/04_validation_loop/evaluate_iterations.py
-
-# 8. Generate the next 10-formulation wet-lab batch
+# 7. Generate the next 10-formulation wet-lab batch
 python src/07_next_formulations/next_formulations.py
 ```
 
@@ -78,11 +77,11 @@ This snapshot still highlights the ectoin + ethylene glycol ridge, but the newes
 ## Active Model and Iterations
 
 - `src/04_validation_loop/*` saves each retrained checkpoint under `models/iteration_*`, updates `data/validation/iteration_history.json`, and then replaces the active root metadata in `models/model_metadata.json` with an explicit overwrite notice.
-- `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_explainability/explainability.py` share the same iteration-aware resolver.
+- `src/03_optimization/optimize_formulation.py`, `src/05_bo_optimization/bo_optimizer.py`, and `src/06_evaluation_explainability/explainability.py` share the same iteration-aware resolver.
 - `src/04_validation_loop/*` also writes a canonical observed-context artifact to `models/<iteration_dir>/observed_context.csv` and mirrors the active copy to `models/observed_context.csv`.
 - If root metadata is missing or inconsistent, these entry points prompt for an iteration number, reject nonsensical choices, and repair `models/model_metadata.json` only after telling you it is overwriting the metadata.
 - Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
-- `03_optimization`, `05_bo_optimization`, and `06_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
+- `03_optimization`, `05_bo_optimization`, and `06_evaluation_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
 - `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
 
 ## Results Snapshot
@@ -144,7 +143,7 @@ model output against the wet-lab batch it actually generated:
 Run:
 
 ```bash
-python src/04_validation_loop/evaluate_iterations.py
+python src/06_evaluation_explainability/evaluate_iterations.py
 ```
 
 Outputs:
@@ -206,7 +205,7 @@ Visualizing how pairs of top ingredients interact to affect viability:
 
 ![Uncertainty Analysis](results/explainability/iteration_3_prior_mean/uncertainty_analysis.png)
 
-For detailed interpretation and additional visualizations, see [`src/06_explainability/README.md`](src/06_explainability/README.md).
+For detailed interpretation and additional visualizations, see [`src/06_evaluation_explainability/README.md`](src/06_evaluation_explainability/README.md).
 
 ---
 
@@ -225,7 +224,7 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
     ├── 03_optimization/        # Random sampling + GP prediction (fast)
     ├── 04_validation_loop/     # Integrate wet lab feedback, retrain model
     ├── 05_bo_optimization/     # Proper BO with Differential Evolution
-    ├── 06_explainability/      # Generate SHAP and explainability plots
+    ├── 06_evaluation_explainability/  # Stage evaluation + explainability plots
     └── 07_next_formulations/   # Build the next 10-formulation wet-lab batch
 ```
 
@@ -236,9 +235,9 @@ For detailed interpretation and additional visualizations, see [`src/06_explaina
 | `01_data_parsing` | Data Parsing & Normalization | Preparing clean, structured training data from raw literature |
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, iteration-aware model loading | Quick generation, metadata repair when active model state is inconsistent |
-| `04_validation_loop` | Three update strategies + iteration checkpointing + stage-based evaluation | Closing the active learning loop with wet lab feedback and scoring frozen candidate batches |
+| `04_validation_loop` | Three update strategies + iteration checkpointing | Closing the active learning loop with wet lab feedback |
 | `05_bo_optimization` | Differential Evolution, wet-lab-aware BO context, shared iteration-aware model loading | Exploiting validated winners while proposing nearby informative variants |
-| `06_explainability` | SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Understanding model drivers and ensuring trust |
+| `06_evaluation_explainability` | Stage-based evaluation, SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Measuring frozen-stage performance and understanding model drivers |
 | `07_next_formulations` | Strict next-batch generation from BO outputs + residual blind spots | Selecting exactly 10 future wet-lab formulations with a fixed 5 exploit / 5 explore split |
 
 ## Key Features

@@ -20,7 +20,7 @@ python src/03_optimization/optimize_formulation.py
 - **Observed context**: `models/<iteration_dir>/observed_context.csv` when available
 - **Fallback inputs**: `data/processed/parsed_formulations.csv` + `data/validation/validation_results.csv`
 
-The script uses the shared active-model resolver that is also used by `05_bo_optimization` and `06_explainability`. It validates the active model against both root metadata and the recorded iteration history:
+The script uses the shared active-model resolver that is also used by `05_bo_optimization` and `06_evaluation_explainability`. It validates the active model against both root metadata and the recorded iteration history:
 - If `models/model_metadata.json` matches a recorded iteration, `03` loads that iteration's artifacts directly.
 - If metadata is missing, malformed, or points at the wrong iteration, `03` prompts for an iteration number.
 - If you choose a valid iteration during conflict recovery, `03` overwrites `models/model_metadata.json` to repair the conflict and explicitly notifies you before and after doing so.
