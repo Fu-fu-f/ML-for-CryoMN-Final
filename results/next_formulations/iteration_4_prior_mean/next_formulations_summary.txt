@@ -1,0 +1,52 @@
+================================================================================
+CryoMN Next Formulations
+================================================================================
+Target stage: iteration_4_prior_mean
+Residual feedback stage: iteration_3_prior_mean
+Output split: 5 exploitation + 5 exploration
+Top blind-spot features: sucrose, dmso, propylene_glycol, ethylene_glycol, fbs
+Top blind-spot pairs: dmso + sucrose, ethylene_glycol + propylene_glycol, ethylene_glycol + sucrose, propylene_glycol + sucrose, dmso + ethylene_glycol
+
+Exploitation picks:
+- 11.0mM dmso + 309.9mM ectoin + 1.56M ethylene_glycol
+  origin: bo_candidate (bo_candidates_dmso_free_iteration_4_prior_mean.csv rank 2)
+  predicted viability: 77.69% +/- 14.51%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+- 310.5mM ectoin + 1.57M ethylene_glycol + 0.1% hsa + 142.8mM raffinose
+  origin: bo_candidate (bo_candidates_general_iteration_4_prior_mean.csv rank 2)
+  predicted viability: 75.89% +/- 15.25%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+- 304.7mM ectoin + 1.55M ethylene_glycol + 6.5% fbs
+  origin: bo_candidate (bo_candidates_general_iteration_4_prior_mean.csv rank 4)
+  predicted viability: 72.61% +/- 16.93%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+- 304.7mM ectoin + 1.55M ethylene_glycol + 5.1% fbs + 0.6% hsa
+  origin: bo_candidate (bo_candidates_general_iteration_4_prior_mean.csv rank 7)
+  predicted viability: 71.67% +/- 17.34%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+- 704.0mM dmso
+  origin: bo_candidate (bo_candidates_general_iteration_4_prior_mean.csv rank 12)
+  predicted viability: 68.07% +/- 16.81%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+
+Exploration / calibration picks:
+- 528.0mM dmso + 100.0mM sucrose
+  origin: generated_probe (stage 3, EXP3107;EXP3108)
+  predicted viability: 37.46% +/- 20.54%
+  rationale: Midpoint calibration probe from underpredicted dmso + sucrose anchors.
+- 362.5mM ethylene_glycol + 1.83M propylene_glycol + 455.4mM sucrose
+  origin: generated_probe (stage 3, EXP3102)
+  predicted viability: 40.19% +/- 23.50%
+  rationale: Local calibration probe around underpredicted propylene_glycol + sucrose chemistry.
+- 48.6mM betaine + 32.5mM dmso + 305.6mM ectoin + 1.65M ethylene_glycol + 0.2% hsa + 24.6mM sucrose
+  origin: explore_fallback from bo_candidates_general_iteration_4_prior_mean.csv rank 5
+  predicted viability: 72.60% +/- 17.02%
+  rationale: High-uncertainty BO fallback in a blind-spot chemistry family.
+- 70.0mM dmso + 10.0% fbs
+  origin: explore_fallback from bo_candidates_dmso_free_iteration_4_prior_mean.csv rank 19
+  predicted viability: 32.54% +/- 19.54%
+  rationale: High-uncertainty BO fallback in a blind-spot chemistry family.
+- 70.0mM dmso
+  origin: explore_fallback from bo_candidates_dmso_free_iteration_4_prior_mean.csv rank 17
+  predicted viability: 34.21% +/- 19.27%
+  rationale: High-uncertainty BO fallback in a blind-spot chemistry family.

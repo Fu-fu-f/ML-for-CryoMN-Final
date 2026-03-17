@@ -110,6 +110,22 @@ The evaluator reports two kinds of evidence:
 - batch-level predictive metrics: RMSE, MAE, Spearman, Kendall, uncertainty coverage, and threshold hit rates
 - candidate rank cross-reference: which validation rows exactly match frozen candidate lists, including their original rank at selection time
 
+### Generate the Next Validation Batch
+
+The evaluation outputs are now one of the inputs to the dedicated next-batch
+generator in `src/07_next_formulations/next_formulations.py`:
+
+```bash
+python src/07_next_formulations/next_formulations.py
+```
+
+That script is separate from the update loop on purpose:
+
+- `04_validation_loop` measures how the frozen stages performed
+- `07_next_formulations` uses the latest completed stage residuals plus active BO outputs to choose the next 10 formulations
+- the split is fixed at 5 exploitation + 5 exploration/calibration
+- the run is strict: it fails before writing if the active stage, validation stage sequence, or required BO artifacts are inconsistent
+
 ### ⚠️ Before Running Any Update Script
 
 > **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your working tree first so you have a clean rollback point.
@@ -214,11 +230,12 @@ Latest outputs in `results/evaluation/` show:
 | Literature only | 18 | 41.21 | -0.327 | 0.444 |
 | Iteration 1 | 11 | 21.67 | -0.518 | 0.909 |
 | Iteration 2 | 6 | 14.74 | 0.086 | 0.667 |
-| Iteration 3 | 0 | N/A | N/A | N/A |
+| Iteration 3 | 8 | 21.05 | 0.476 | 0.625 |
+| Iteration 4 | 0 | N/A | N/A | N/A |
 
-This means the model is getting better in absolute error, but rank ordering of
-the best formulations is still unstable. The clearest proof of iteration 3
-improvement will come from validating and logging more frozen top-ranked
-iteration 3 candidates.
+This means the model improved in rank ordering for iteration 3, but it is still
+not a well-calibrated viability predictor. The new `07_next_formulations` step
+exists to spend part of the next wet-lab batch on calibration probes instead of
+only chasing the highest predicted formulations.
 
 ![Stage Performance](../../results/evaluation/stage_performance.png)

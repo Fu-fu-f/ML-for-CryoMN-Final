@@ -31,6 +31,13 @@ This script uses the same active-model resolver as `03_optimization`:
 - `results/bo_candidates_dmso_free_<iteration_tag>.csv` - Low-DMSO candidates (`<0.5%` DMSO)
 - `*_summary.txt` - Human-readable summaries saved alongside the CSVs
 
+These BO outputs are also the exploitation input to
+`src/07_next_formulations/next_formulations.py`, which builds the final
+10-formulation wet-lab batch by combining:
+
+- 5 exploitation picks from these `05` BO candidate files
+- 5 exploration/calibration probes generated from the latest completed stage's residual blind spots
+
 `<iteration_tag>` comes from the resolved active model identity, for example:
 - `iteration_1`
 - `iteration_3_weighted_simple`
@@ -126,3 +133,4 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 
 - **`03_optimization`**: Quick candidate generation, initial exploration, when speed matters
 - **`05_bo_optimization`**: Serious optimization, when you want to preserve the best validated recipes and explore high-value local variants around them
+- **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 5 exploit / 5 explore split and full input/output validation

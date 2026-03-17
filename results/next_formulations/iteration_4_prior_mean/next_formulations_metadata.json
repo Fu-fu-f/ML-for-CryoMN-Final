@@ -1,0 +1,92 @@
+{
+  "target_stage": 4,
+  "target_iteration_dir": "iteration_4_prior_mean",
+  "feedback_stage": 3,
+  "feedback_iteration_dir": "iteration_3_prior_mean",
+  "generation_seed": 42,
+  "min_positive_residual": 10.0,
+  "meaningful_actual_min": 50.0,
+  "min_exploration_prediction": 30.0,
+  "exploit_count": 5,
+  "explore_count": 5,
+  "effective_max_ingredients": 6,
+  "dmso_cap_percent": 5.0,
+  "candidate_files": [
+    "results/bo_candidates_general_iteration_4_prior_mean.csv",
+    "results/bo_candidates_dmso_free_iteration_4_prior_mean.csv"
+  ],
+  "used_exploration_fallback": true,
+  "top_positive_features": [
+    {
+      "feature": "sucrose_M",
+      "score": 12.7555
+    },
+    {
+      "feature": "dmso_M",
+      "score": 11.8455
+    },
+    {
+      "feature": "propylene_glycol_M",
+      "score": 5.3723
+    },
+    {
+      "feature": "ethylene_glycol_M",
+      "score": 4.0074
+    },
+    {
+      "feature": "fbs_pct",
+      "score": 2.6424
+    }
+  ],
+  "top_positive_pairs": [
+    {
+      "pair": [
+        "dmso_M",
+        "sucrose_M"
+      ],
+      "score": 32.8941
+    },
+    {
+      "pair": [
+        "ethylene_glycol_M",
+        "propylene_glycol_M"
+      ],
+      "score": 8.0585
+    },
+    {
+      "pair": [
+        "ethylene_glycol_M",
+        "sucrose_M"
+      ],
+      "score": 8.0585
+    },
+    {
+      "pair": [
+        "propylene_glycol_M",
+        "sucrose_M"
+      ],
+      "score": 8.0585
+    },
+    {
+      "pair": [
+        "dmso_M",
+        "ethylene_glycol_M"
+      ],
+      "score": 3.9637
+    },
+    {
+      "pair": [
+        "dmso_M",
+        "fbs_pct"
+      ],
+      "score": 3.9637
+    },
+    {
+      "pair": [
+        "ethylene_glycol_M",
+        "fbs_pct"
+      ],
+      "score": 3.9637
+    }
+  ]
+}
