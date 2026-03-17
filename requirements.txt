@@ -22,10 +22,8 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 
 # Explainability
+# SHAP plots are skipped gracefully if this dependency is not installed.
 shap>=0.42.0
 
-# Utilities
-tqdm>=4.65.0
-
-# Testing
+# Testing / development
 pytest>=7.4.0
