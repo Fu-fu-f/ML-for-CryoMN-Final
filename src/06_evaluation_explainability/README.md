@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module now groups the post-update analysis tools:
+This module groups the post-update analysis tools:
 
 | Script | Purpose | Main outputs |
 |--------|---------|--------------|
@@ -60,6 +60,7 @@ The evaluator reports:
 
 - batch-level predictive metrics such as RMSE, MAE, Spearman, Kendall, coverage, and hit rates
 - candidate-rank cross references showing which frozen candidate rows were later tested in wet lab
+- recommendation-slate evaluation for `results/next_formulations/<iteration_tag>/next_formulations.csv`, including exploit/explore and origin-level summaries when those files exist
 
 Candidate-hit matching uses the same practical concentration floor as `05` and
 `07`:
@@ -69,6 +70,18 @@ Candidate-hit matching uses the same practical concentration floor as `05` and
 
 This means a frozen candidate row can still count as a later wet-lab hit when
 the only difference is a trace ingredient that should effectively be zero.
+
+Additional evaluation outputs:
+
+- `results/evaluation/next_formulations_performance.png`
+
+The recommendation-slate audit rescales the saved `07` rows with the frozen
+stage model inside `06`, then compares them with later wet-lab measurements.
+It reports:
+
+- overall `07` slate performance
+- `exploit` versus `explore` summaries
+- origin-level summaries such as `bo_candidate`, `local_rank_probe`, `blindspot_probe`, and `explore_fallback`
 
 ## Explainability
 

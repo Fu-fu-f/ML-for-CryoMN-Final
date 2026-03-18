@@ -1,0 +1,8 @@
+{
+  "incumbent_label": "prior_mean_correction_alpha_wetlab_0.02",
+  "incumbent_mean_rmse": 16.6747,
+  "decision": "no_switch",
+  "recommended_label": null,
+  "reason": "No candidate satisfied the comparison guardrails.",
+  "guardrail_pass_count": 0
+}

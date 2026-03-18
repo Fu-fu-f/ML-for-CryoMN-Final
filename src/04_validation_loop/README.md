@@ -11,6 +11,7 @@ This module integrates wet lab validation results to iteratively refine the GP m
 | `update_model.py` | Simple concatenation | Baseline (no weighting) |
 | `update_model_weighted_simple.py` | Sample duplication (10x) | Quick experiments, first iterations |
 | `update_model_weighted_prior.py` | Prior mean + correction | When literature has systematic bias |
+| `compare_update_methods.py` | Shadow rolling comparison | Comparing update methods without activating any candidate |
 
 ## Workflow
 
@@ -78,6 +79,7 @@ That evaluator:
 - scores literature-only and iteration-specific frozen outputs against the wet-lab batch each stage actually produced
 - writes JSON, CSV, and plot artifacts under `results/evaluation/`
 - provides the stage residual signals consumed later by `07_next_formulations`
+- audits saved `07` recommendation slates when `results/next_formulations/<iteration_tag>/next_formulations.csv` exists
 
 ### Generate the Next Validation Batch
 
@@ -92,9 +94,26 @@ python src/07_next_formulations/next_formulations.py
 That script is separate from the update loop on purpose:
 
 - `04_validation_loop` measures how the frozen stages performed
-- `07_next_formulations` uses the latest completed stage residuals plus active BO outputs to choose the next 20 formulations
-- the split is fixed at 10 exploitation + 10 exploration/calibration
+- `07_next_formulations` uses stage residuals plus active BO outputs to choose the next 20 formulations
+- the split is fixed at 8 exploitation + 12 exploration/calibration
+- the exploration bucket is assembled from local-rank probes, blind-spot probes, and BO fallback only when needed
+- the output directory also includes recommended subsets for wet-lab capacities from 6 to 12 formulations
 - the run is strict: it fails before writing if the active stage, validation stage sequence, or required BO artifacts are inconsistent
+
+### Compare Candidate Update Methods Without Activation
+
+The shadow comparison workflow reuses the production training paths without
+touching the active model registry:
+
+```bash
+python src/04_validation_loop/compare_update_methods.py
+```
+
+It:
+- trains each candidate method in-memory only
+- evaluates each candidate on later completed stages using a rolling retrospective split
+- writes comparison artifacts under `results/model_comparison/`
+- produces `recommended_method.json` with either `switch`, `keep_incumbent`, or `no_switch`
 
 The update scripts here still train on raw wet-lab numeric concentrations. The
 practical concentration floor used by `05`, `06`, and `07` changes candidate
@@ -181,6 +200,7 @@ Whenever an update script activates a newly trained iteration by replacing `mode
 - **Observed context** in `models/iteration_N_<method>/observed_context.csv` and `models/observed_context.csv`
 - **Compatibility evaluation data** in `data/processed/evaluation_data.csv` (mirror written by `update_model_weighted_prior.py`)
 - Iteration history in `data/validation/iteration_history.json`
+- Shadow comparison artifacts in `results/model_comparison/` when `compare_update_methods.py` is run
 
 The canonical observed context CSV includes a `context_weight` column (1.0 for literature, weighted values for wet lab), a `source` column, and iteration identity fields. `03`, `05`, and `06` use this file as the source of truth for the active iteration. The compatibility evaluation data CSV keeps the `weight` column for prior-mean compatibility only.
 

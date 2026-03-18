@@ -57,9 +57,16 @@ EXPERIMENT_ID_PATTERN = re.compile(r"(\d+)")
 ITERATION_DIR_PATTERN = re.compile(r"^iteration_(\d+)(?:_[A-Za-z0-9_]+)?$")
 FEATURE_THRESHOLD = 1e-6
 GENERATION_SEED = 42
-EXPLOIT_COUNT = 10
-EXPLORE_COUNT = 10
+EXPLOIT_COUNT = 8
+EXPLORE_COUNT = 12
 TOTAL_COUNT = EXPLOIT_COUNT + EXPLORE_COUNT
+LOCAL_RANK_PROBE_COUNT = 8
+BLINDSPOT_PROBE_COUNT = 4
+LOCAL_RANK_ANCHOR_COUNT = 4
+LOCAL_RANK_PRIMARY_DELTA = 0.10
+LOCAL_RANK_RETRY_DELTA = 0.20
+BATCH_RECOMMENDATION_MIN = 6
+BATCH_RECOMMENDATION_MAX = 12
 POSITIVE_RESIDUAL_THRESHOLDS = [10.0, 8.0, 5.0, 2.0, 0.0]
 MEANINGFUL_ACTUAL_MIN = 50.0
 MIN_EXPLORATION_PREDICTION = 30.0
@@ -749,7 +756,7 @@ def vector_to_record(
             "origin": origin,
             "source_file": source_file or "",
             "source_rank": source_rank,
-            "source_kind": "generated" if origin == "generated_probe" else "bo",
+            "source_kind": "generated" if origin in {"generated_probe", "blindspot_probe", "local_rank_probe"} else "bo",
             "signature": format_formulation(row, feature_names),
             "chemistry_family": chemistry_family(row, feature_names),
             "anchor_stage": anchor_stage,
@@ -858,6 +865,29 @@ def build_scaled_probe(
     return vector
 
 
+def build_local_rank_probe(
+    anchor_row: Dict,
+    scaled_features: Sequence[str],
+    feature_names: Sequence[str],
+    optimizer: BayesianOptimizer,
+    scale_factor: float,
+) -> Optional[np.ndarray]:
+    """Generate one local rank-resolution probe around an exploit anchor."""
+    vector = np.array([float(anchor_row.get(feature_name, 0.0)) for feature_name in feature_names], dtype=float)
+    active_features_scaled = False
+    for feature_name in scaled_features:
+        if feature_name not in feature_names:
+            continue
+        idx = feature_names.index(feature_name)
+        if abs(vector[idx]) <= FEATURE_THRESHOLD:
+            continue
+        vector[idx] *= scale_factor
+        active_features_scaled = True
+    if not active_features_scaled:
+        return None
+    return finalise_generated_vector(vector, feature_names, optimizer, scaled_features)
+
+
 def compute_blindspot_score(
     row: pd.Series,
     feature_names: Sequence[str],
@@ -941,6 +971,104 @@ def score_records_with_active_model(
         len(active_features(row, active_stage.feature_names)) for _, row in scored.iterrows()
     ]
     return scored
+
+
+def build_local_rank_probe_rows(
+    exploit_rows: Sequence[Dict],
+    active_stage: StageArtifacts,
+    optimizer: BayesianOptimizer,
+    feature_signal: Dict[str, float],
+    pair_signal: Dict[Tuple[str, str], float],
+    wetlab_feature_counts: Dict[str, int],
+    wetlab_pair_counts: Dict[Tuple[str, str], int],
+    tested_signatures: set[str],
+) -> Tuple[List[Dict], Dict[str, object]]:
+    """Generate local rank-resolution probes around the top exploit anchors."""
+    anchor_rows = [dict(row) for row in exploit_rows[:LOCAL_RANK_ANCHOR_COUNT]]
+    if not anchor_rows:
+        return [], {"local_rank_anchor_count": 0, "local_rank_probe_count": 0}
+
+    generated_records: List[Dict] = []
+    seen_signatures = set(tested_signatures) | {str(row["signature"]) for row in anchor_rows}
+
+    for anchor_index, anchor in enumerate(anchor_rows, start=1):
+        scaled_features = top_features_by_magnitude(pd.Series(anchor), active_stage.feature_names, limit=2)
+        if len(scaled_features) < 2:
+            continue
+
+        source_file = str(anchor.get("source_file", ""))
+        source_rank = int(anchor.get("source_rank", 0) or 0)
+        for direction, primary_factor, retry_factor in (
+            ("down", 1.0 - LOCAL_RANK_PRIMARY_DELTA, 1.0 - LOCAL_RANK_RETRY_DELTA),
+            ("up", 1.0 + LOCAL_RANK_PRIMARY_DELTA, 1.0 + LOCAL_RANK_RETRY_DELTA),
+        ):
+            selected_record: Optional[Dict] = None
+            for scale_factor in (primary_factor, retry_factor):
+                probe = build_local_rank_probe(
+                    anchor,
+                    scaled_features,
+                    active_stage.feature_names,
+                    optimizer,
+                    scale_factor,
+                )
+                if probe is None:
+                    continue
+                probe_record = vector_to_record(
+                    probe,
+                    active_stage.feature_names,
+                    origin="local_rank_probe",
+                    anchor_stage=active_stage.stage,
+                    anchor_experiments=[],
+                    source_file=source_file,
+                    source_rank=source_rank,
+                )
+                signature = str(probe_record["signature"])
+                if signature in seen_signatures:
+                    continue
+                probe_record["probe_order"] = len(generated_records)
+                delta_pct = abs(scale_factor - 1.0) * 100.0
+                probe_record["rationale"] = (
+                    "Local rank-resolution probe around exploit anchor "
+                    f"{source_file} rank {source_rank}; "
+                    f"scaled {scaled_features[0].replace('_M', '').replace('_pct', '')} + "
+                    f"{scaled_features[1].replace('_M', '').replace('_pct', '')} "
+                    f"{direction} by {delta_pct:.0f}%."
+                )
+                selected_record = probe_record
+                seen_signatures.add(signature)
+                break
+            if selected_record is not None:
+                generated_records.append(selected_record)
+
+    if not generated_records:
+        return [], {
+            "local_rank_anchor_count": int(len(anchor_rows)),
+            "local_rank_probe_count": 0,
+        }
+
+    scored = score_records_with_active_model(
+        generated_records,
+        active_stage,
+        feature_signal,
+        pair_signal,
+        wetlab_feature_counts,
+        wetlab_pair_counts,
+    )
+    scored = scored[
+        (scored["predicted_viability"] >= MIN_EXPLORATION_PREDICTION)
+        & (scored["dmso_percent"] <= optimizer.config.max_dmso_percent + 1e-6)
+    ].copy()
+    if scored.empty:
+        return [], {
+            "local_rank_anchor_count": int(len(anchor_rows)),
+            "local_rank_probe_count": 0,
+        }
+
+    scored = scored.sort_values("probe_order", kind="mergesort").head(LOCAL_RANK_PROBE_COUNT).copy()
+    return scored.to_dict(orient="records"), {
+        "local_rank_anchor_count": int(len(anchor_rows)),
+        "local_rank_probe_count": int(len(scored)),
+    }
 
 
 def rank_generated_probes(
@@ -1029,7 +1157,7 @@ def build_generated_probe_pool(
                 midpoint_record = vector_to_record(
                     midpoint,
                     active_stage.feature_names,
-                    origin="generated_probe",
+                    origin="blindspot_probe",
                     anchor_stage=int(anchors[0]["stage"]),
                     anchor_experiments=[
                         str(anchors[0]["experiment_id"]),
@@ -1055,7 +1183,7 @@ def build_generated_probe_pool(
             record = vector_to_record(
                 probe,
                 active_stage.feature_names,
-                origin="generated_probe",
+                origin="blindspot_probe",
                 anchor_stage=int(anchor["stage"]),
                 anchor_experiments=[str(anchor["experiment_id"])],
             )
@@ -1195,24 +1323,25 @@ def select_diverse_rows(
 def select_generated_exploration_rows(
     generated_pool: pd.DataFrame,
     already_selected_signatures: set[str],
+    count: int = BLINDSPOT_PROBE_COUNT,
 ) -> Tuple[List[Dict], Dict[str, int]]:
     """Select generated exploration rows before consulting BO fallback."""
     strict_selected = select_diverse_rows(
         generated_pool,
-        count=EXPLORE_COUNT,
+        count=count,
         score_column="exploration_score",
         family_limit=EXPLORE_FAMILY_LIMIT,
         min_predicted_viability=MIN_EXPLORATION_PREDICTION,
         disallowed_signatures=set(already_selected_signatures),
     )
     selected = list(strict_selected)
-    if len(selected) < EXPLORE_COUNT:
+    if len(selected) < count:
         disallowed = set(already_selected_signatures) | {str(row["signature"]) for row in selected}
         relaxed_topup = select_diverse_rows(
             generated_pool,
-            count=EXPLORE_COUNT - len(selected),
+            count=count - len(selected),
             score_column="exploration_score",
-            family_limit=EXPLORE_COUNT,
+            family_limit=count,
             min_predicted_viability=MIN_EXPLORATION_PREDICTION,
             disallowed_signatures=disallowed,
         )
@@ -1260,6 +1389,7 @@ def choose_generated_exploration_rows(
         selected_rows, selection_counts = select_generated_exploration_rows(
             generated_pool,
             already_selected_signatures,
+            count=BLINDSPOT_PROBE_COUNT,
         )
         attempt = {
             "positive_residual_threshold": threshold,
@@ -1349,14 +1479,16 @@ def build_exploitation_selection(
 
 
 def build_exploration_selection(
-    generated_rows: List[Dict],
+    local_rank_rows: List[Dict],
+    blindspot_rows: List[Dict],
     fallback_pool: pd.DataFrame,
     already_selected_signatures: set[str],
 ) -> Tuple[List[Dict], int]:
     """Select the final exploration rows, falling back to BO rows if needed."""
-    selected = [dict(row) for row in generated_rows]
+    selected = [dict(row) for row in local_rank_rows]
+    selected.extend(dict(row) for row in blindspot_rows[:BLINDSPOT_PROBE_COUNT])
     if len(selected) >= EXPLORE_COUNT:
-        return selected, 0
+        return selected[:EXPLORE_COUNT], 0
 
     disallowed = {str(row["signature"]) for row in selected} | set(already_selected_signatures)
     selected_families = {str(row["chemistry_family"]) for row in selected}
@@ -1428,7 +1560,7 @@ def validate_output_rows(
     for idx, row in enumerate(rows):
         if not row.get("rationale"):
             raise ValidationError(f"Row {idx + 1} is missing rationale text.")
-        if row.get("origin") not in {"bo_candidate", "generated_probe", "explore_fallback"}:
+        if row.get("origin") not in {"bo_candidate", "local_rank_probe", "blindspot_probe", "explore_fallback"}:
             raise ValidationError(f"Row {idx + 1} has unexpected origin: {row.get('origin')}")
         if not math.isclose(float(row["predicted_viability"]), float(pred_mean[idx]), rel_tol=1e-6, abs_tol=1e-6):
             raise ValidationError(f"Row {idx + 1} prediction does not match active model scoring.")
@@ -1463,6 +1595,7 @@ def build_summary_text(
     pair_signal: Dict[Tuple[str, str], float],
     exploration_audit: Dict[str, object],
     blindspot_audit: Dict[str, object],
+    batch_recommendations: Sequence[Dict[str, object]],
 ) -> str:
     """Render a human-readable summary."""
     top_features = [
@@ -1478,7 +1611,8 @@ def build_summary_text(
     thresholds_tried = [float(value) for value in exploration_audit["positive_residual_thresholds_tried"]]
     default_threshold = thresholds_tried[0]
     selected_threshold = float(exploration_audit["selected_positive_residual_threshold"])
-    generated_explore_count = int(exploration_audit["generated_explore_count"])
+    local_rank_probe_count = int(exploration_audit.get("local_rank_probe_count", 0))
+    blindspot_probe_count = int(exploration_audit["generated_explore_count"])
     fallback_explore_count = int(exploration_audit["fallback_explore_count"])
     if math.isclose(selected_threshold, default_threshold):
         threshold_note = f"none (kept default {default_threshold:.1f})"
@@ -1499,7 +1633,8 @@ def build_summary_text(
         "Positive residual thresholds tried: " + ", ".join(f"{threshold:.1f}" for threshold in thresholds_tried),
         f"Selected positive residual threshold: {selected_threshold:.1f}",
         f"Residual threshold relaxation: {threshold_note}",
-        f"Generated exploration rows: {generated_explore_count}",
+        f"Local rank-resolution probes: {local_rank_probe_count}",
+        f"Blind-spot probes: {blindspot_probe_count}",
         f"BO fallback exploration rows: {fallback_explore_count}",
         (
             "Generated anchor stage range: "
@@ -1542,7 +1677,7 @@ def build_summary_text(
             anchor_bits.append(str(row["anchor_experiments"]))
         anchor_text = f" ({', '.join(anchor_bits)})" if anchor_bits else ""
         source_text = ""
-        if row["origin"] != "generated_probe":
+        if row.get("source_file"):
             source_text = f" from {row['source_file']} rank {row['source_rank']}"
         lines.extend(
             [
@@ -1551,6 +1686,18 @@ def build_summary_text(
                 f"  predicted viability: {row['predicted_viability']:.2f}% +/- {row['uncertainty']:.2f}%",
                 f"  rationale: {row['rationale']}",
             ]
+        )
+
+    lines.append("")
+    lines.append("Recommended smaller batch subsets:")
+    for recommendation in batch_recommendations:
+        lines.append(
+            f"- batch size {recommendation['batch_size']}:"
+            f" score={recommendation['heuristic_score']},"
+            f" exploit={recommendation['selected_counts']['exploit']},"
+            f" local_rank={recommendation['selected_counts']['local_rank']},"
+            f" blindspot={recommendation['selected_counts']['blindspot']},"
+            f" mean_pred={recommendation['mean_predicted_viability']}"
         )
 
     lines.append("")
@@ -1592,6 +1739,8 @@ def preflight_report(
         "generated_pool_rows_at_selected_threshold": int(
             exploration_audit["generated_pool_rows_at_selected_threshold"]
         ),
+        "local_rank_anchor_count": int(exploration_audit.get("local_rank_anchor_count", 0)),
+        "local_rank_probe_count": int(exploration_audit.get("local_rank_probe_count", 0)),
         "generated_explore_count": int(exploration_audit["generated_explore_count"]),
         "fallback_explore_count": int(exploration_audit["fallback_explore_count"]),
         "generated_anchor_stage_counts": dict(exploration_audit.get("generated_anchor_stage_counts", {})),
@@ -1644,6 +1793,219 @@ def to_output_rows(
     return rows
 
 
+def score_batch_recommendation_rows(
+    output_rows: List[Dict],
+    active_stage: StageArtifacts,
+) -> pd.DataFrame:
+    """Attach heuristic utility scores used to recommend smaller test batches."""
+    scored = pd.DataFrame(output_rows).copy()
+    if scored.empty:
+        return scored
+
+    scored["recommendation_id"] = np.arange(1, len(scored) + 1)
+    scored["chemistry_family"] = [
+        chemistry_family(row, active_stage.feature_names) for _, row in scored.iterrows()
+    ]
+    scored["pred_norm"] = normalize(scored["predicted_viability"])
+    scored["unc_norm"] = normalize(scored["uncertainty"])
+    scored["blindspot_norm"] = normalize(scored["blindspot_score"].clip(lower=0.0))
+    scored["novelty_norm"] = normalize(scored["novelty_score"])
+    scored["confidence_norm"] = 1.0 - scored["unc_norm"]
+
+    scored["subset_role"] = "blindspot"
+    scored.loc[scored["recommendation_type"] == "exploit", "subset_role"] = "exploit"
+    scored.loc[scored["origin"] == "local_rank_probe", "subset_role"] = "local_rank"
+    scored.loc[scored["origin"] == "explore_fallback", "subset_role"] = "fallback"
+
+    scored["local_anchor_key"] = scored.apply(
+        lambda row: f"{row['source_file']}::{int(row['source_rank'])}"
+        if row["origin"] == "local_rank_probe" and pd.notna(row.get("source_rank"))
+        else "",
+        axis=1,
+    )
+
+    row_scores = []
+    for _, row in scored.iterrows():
+        if row["recommendation_type"] == "exploit":
+            score = (
+                0.70 * row["pred_norm"]
+                + 0.20 * row["confidence_norm"]
+                + 0.10 * row["novelty_norm"]
+            )
+        elif row["origin"] == "local_rank_probe":
+            score = (
+                0.40 * row["pred_norm"]
+                + 0.30 * row["unc_norm"]
+                + 0.20 * row["blindspot_norm"]
+                + 0.10 * row["novelty_norm"]
+            )
+        elif row["origin"] == "blindspot_probe":
+            score = (
+                0.20 * row["pred_norm"]
+                + 0.35 * row["unc_norm"]
+                + 0.35 * row["blindspot_norm"]
+                + 0.10 * row["novelty_norm"]
+            )
+        else:
+            score = (
+                0.15 * row["pred_norm"]
+                + 0.35 * row["unc_norm"]
+                + 0.25 * row["blindspot_norm"]
+                + 0.15 * row["novelty_norm"]
+                - 0.05
+            )
+        row_scores.append(float(score))
+    scored["batch_utility"] = row_scores
+    return scored
+
+
+def target_batch_role_counts(batch_size: int) -> Dict[str, int]:
+    """Return the intended exploit/local/blind split for one smaller wet-lab batch."""
+    exploit_target = int(round(batch_size * EXPLOIT_COUNT / TOTAL_COUNT))
+    local_target = int(round(batch_size * LOCAL_RANK_PROBE_COUNT / TOTAL_COUNT))
+    blind_target = batch_size - exploit_target - local_target
+    return {
+        "exploit": max(exploit_target, 0),
+        "local_rank": max(local_target, 0),
+        "blindspot": max(blind_target, 0),
+    }
+
+
+def build_batch_recommendations(
+    output_rows: List[Dict],
+    active_stage: StageArtifacts,
+) -> Tuple[List[Dict[str, object]], pd.DataFrame, Dict[str, object]]:
+    """Recommend the best subset for each feasible batch size from 6 to 12."""
+    scored_rows = score_batch_recommendation_rows(output_rows, active_stage)
+    if scored_rows.empty:
+        return [], pd.DataFrame(), {}
+
+    row_records = scored_rows.to_dict(orient="records")
+    utility_values = scored_rows["batch_utility"].to_numpy(dtype=float)
+    predicted_values = scored_rows["predicted_viability"].to_numpy(dtype=float)
+    uncertainty_values = scored_rows["uncertainty"].to_numpy(dtype=float)
+    role_values = scored_rows["subset_role"].astype(str).to_numpy()
+    family_codes, _ = pd.factorize(scored_rows["chemistry_family"].astype(str), sort=False)
+    local_anchor_labels = scored_rows["local_anchor_key"].astype(str)
+    local_anchor_codes = np.full(len(scored_rows), -1, dtype=int)
+    nonempty_local_anchor = local_anchor_labels != ""
+    if nonempty_local_anchor.any():
+        encoded_local_anchors, _ = pd.factorize(local_anchor_labels[nonempty_local_anchor], sort=False)
+        local_anchor_codes[nonempty_local_anchor.to_numpy()] = encoded_local_anchors.astype(int)
+
+    recommendations: List[Dict[str, object]] = []
+    flattened_rows: List[Dict[str, object]] = []
+
+    for batch_size in range(BATCH_RECOMMENDATION_MIN, BATCH_RECOMMENDATION_MAX + 1):
+        best_score = -float("inf")
+        best_tie_break = (-float("inf"), -float("inf"), -float("inf"))
+        best_subset_indices: Tuple[int, ...] = ()
+        target_counts = target_batch_role_counts(batch_size)
+
+        for index_combo in combinations(range(len(row_records)), batch_size):
+            combo_indices = np.fromiter(index_combo, dtype=int)
+            combo_roles = role_values[combo_indices]
+            exploit_count = int(np.count_nonzero(combo_roles == "exploit"))
+            local_count = int(np.count_nonzero(combo_roles == "local_rank"))
+            blind_count = int(np.count_nonzero((combo_roles == "blindspot") | (combo_roles == "fallback")))
+
+            family_count = int(np.unique(family_codes[combo_indices]).size)
+            local_codes = local_anchor_codes[combo_indices]
+            local_codes = local_codes[local_codes >= 0]
+            local_anchor_count = int(np.unique(local_codes).size)
+
+            base_score = float(utility_values[combo_indices].sum())
+            family_bonus = 0.10 * float(family_count)
+            local_anchor_bonus = 0.08 * float(local_anchor_count)
+            type_penalty = (
+                0.45 * abs(exploit_count - target_counts["exploit"])
+                + 0.35 * abs(local_count - target_counts["local_rank"])
+                + 0.25 * abs(blind_count - target_counts["blindspot"])
+            )
+            subset_score = base_score + family_bonus + local_anchor_bonus - type_penalty
+            tie_break = (
+                float(predicted_values[combo_indices].mean()),
+                float(family_count),
+                -float(uncertainty_values[combo_indices].mean()),
+            )
+            if subset_score > best_score + 1e-12 or (
+                math.isclose(subset_score, best_score, rel_tol=1e-12, abs_tol=1e-12)
+                and tie_break > best_tie_break
+            ):
+                best_score = subset_score
+                best_tie_break = tie_break
+                best_subset_indices = index_combo
+
+        best_subset_records = [row_records[idx] for idx in best_subset_indices]
+        best_subset_df = pd.DataFrame(best_subset_records)
+        role_counts = best_subset_df["subset_role"].value_counts().to_dict()
+        recommendation = {
+            "batch_size": int(batch_size),
+            "heuristic_score": round_or_none(best_score),
+            "target_counts": dict(target_counts),
+            "selected_counts": {
+                "exploit": int(role_counts.get("exploit", 0)),
+                "local_rank": int(role_counts.get("local_rank", 0)),
+                "blindspot": int(role_counts.get("blindspot", 0) + role_counts.get("fallback", 0)),
+            },
+            "mean_predicted_viability": round_or_none(best_subset_df["predicted_viability"].mean()),
+            "mean_uncertainty": round_or_none(best_subset_df["uncertainty"].mean()),
+            "unique_chemistry_families": int(best_subset_df["chemistry_family"].nunique()),
+            "rows": [],
+        }
+        for selection_order, (_, row) in enumerate(best_subset_df.sort_values(["recommendation_type", "bucket_rank", "recommendation_id"]).iterrows(), start=1):
+            recommendation["rows"].append(
+                {
+                    "selection_order": int(selection_order),
+                    "recommendation_id": int(row["recommendation_id"]),
+                    "recommendation_type": str(row["recommendation_type"]),
+                    "origin": str(row["origin"]),
+                    "bucket_rank": int(row["bucket_rank"]),
+                    "predicted_viability": round_or_none(row["predicted_viability"]),
+                    "uncertainty": round_or_none(row["uncertainty"]),
+                    "batch_utility": round_or_none(row["batch_utility"]),
+                    "formulation": str(row["formulation"]),
+                }
+            )
+            flattened_rows.append(
+                {
+                    "batch_size": int(batch_size),
+                    "selection_order": int(selection_order),
+                    "recommendation_id": int(row["recommendation_id"]),
+                    "recommendation_type": str(row["recommendation_type"]),
+                    "origin": str(row["origin"]),
+                    "bucket_rank": int(row["bucket_rank"]),
+                    "predicted_viability": float(row["predicted_viability"]),
+                    "uncertainty": float(row["uncertainty"]),
+                    "batch_utility": float(row["batch_utility"]),
+                    "formulation": str(row["formulation"]),
+                }
+            )
+        recommendations.append(recommendation)
+
+    scoring_config = {
+        "batch_size_range": [BATCH_RECOMMENDATION_MIN, BATCH_RECOMMENDATION_MAX],
+        "target_mix_basis": {
+            "exploit_count": EXPLOIT_COUNT,
+            "local_rank_probe_count": LOCAL_RANK_PROBE_COUNT,
+            "blindspot_probe_count": BLINDSPOT_PROBE_COUNT,
+            "total_count": TOTAL_COUNT,
+        },
+        "row_score_weights": {
+            "exploit": {"pred_norm": 0.70, "confidence_norm": 0.20, "novelty_norm": 0.10},
+            "local_rank_probe": {"pred_norm": 0.40, "unc_norm": 0.30, "blindspot_norm": 0.20, "novelty_norm": 0.10},
+            "blindspot_probe": {"pred_norm": 0.20, "unc_norm": 0.35, "blindspot_norm": 0.35, "novelty_norm": 0.10},
+            "explore_fallback": {"pred_norm": 0.15, "unc_norm": 0.35, "blindspot_norm": 0.25, "novelty_norm": 0.15, "penalty": -0.05},
+        },
+        "subset_score_adjustments": {
+            "chemistry_family_bonus": 0.10,
+            "local_anchor_bonus": 0.08,
+            "type_penalty_weights": {"exploit": 0.45, "local_rank": 0.35, "blindspot": 0.25},
+        },
+    }
+    return recommendations, pd.DataFrame(flattened_rows), scoring_config
+
+
 def write_atomic_text(path: Path, content: str) -> None:
     """Write one text file atomically."""
     tmp_path = path.with_name(path.name + ".tmp")
@@ -1670,6 +2032,8 @@ def ensure_output_paths(output_dir: Path, overwrite: bool) -> Dict[str, Path]:
         "summary": output_dir / "next_formulations_summary.txt",
         "metadata": output_dir / "next_formulations_metadata.json",
         "input_validation": output_dir / "input_validation.json",
+        "batch_recommendations_json": output_dir / "batch_recommendations.json",
+        "batch_recommendations_csv": output_dir / "batch_recommendations.csv",
     }
     if not overwrite:
         existing = [str(path) for path in paths.values() if path.exists()]
@@ -1737,6 +2101,17 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
         raise ValidationError(f"Unable to select {EXPLOIT_COUNT} exploitation rows from active BO candidates.")
 
     exploit_signatures = {str(row["signature"]) for row in exploit_rows}
+    local_rank_rows, local_rank_audit = build_local_rank_probe_rows(
+        exploit_rows,
+        active_stage,
+        optimizer,
+        feature_signal,
+        pair_signal,
+        wetlab_feature_counts,
+        wetlab_pair_counts,
+        tested_signatures,
+    )
+    local_rank_signatures = {str(row["signature"]) for row in local_rank_rows}
     generated_selection = choose_generated_exploration_rows(
         active_stage,
         historical_residual_df,
@@ -1746,7 +2121,7 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
         wetlab_feature_counts,
         wetlab_pair_counts,
         tested_signatures,
-        exploit_signatures,
+        exploit_signatures | local_rank_signatures,
     )
     fallback_pool = build_bo_exploration_fallback_pool(
         candidate_pool,
@@ -1758,6 +2133,7 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
     )
 
     explore_rows, fallback_explore_count = build_exploration_selection(
+        local_rank_rows,
         generated_selection["selected_rows"],
         fallback_pool,
         exploit_signatures,
@@ -1765,10 +2141,16 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
     if len(explore_rows) != EXPLORE_COUNT:
         raise ValidationError(f"Unable to select {EXPLORE_COUNT} exploration rows.")
     exploration_audit = dict(generated_selection["audit"])
+    exploration_audit["local_rank_anchor_count"] = int(local_rank_audit["local_rank_anchor_count"])
+    exploration_audit["local_rank_probe_count"] = int(local_rank_audit["local_rank_probe_count"])
     exploration_audit["fallback_explore_count"] = int(fallback_explore_count)
 
     output_rows = to_output_rows(active_stage, exploit_rows, explore_rows)
     validate_output_rows(output_rows, active_stage, optimizer, tested_signatures)
+    batch_recommendations, batch_recommendations_df, batch_recommendation_scoring = build_batch_recommendations(
+        output_rows,
+        active_stage,
+    )
 
     output_dir = NEXT_FORMULATIONS_DIR / active_stage.iteration_dir
     output_paths = ensure_output_paths(output_dir, overwrite=overwrite)
@@ -1794,6 +2176,7 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
         pair_signal,
         exploration_audit,
         blindspot_audit,
+        batch_recommendations,
     )
     metadata = {
         "target_stage": active_stage.stage,
@@ -1807,6 +2190,8 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
         "generated_pool_rows_at_selected_threshold": int(
             exploration_audit["generated_pool_rows_at_selected_threshold"]
         ),
+        "local_rank_anchor_count": int(exploration_audit.get("local_rank_anchor_count", 0)),
+        "local_rank_probe_count": int(exploration_audit.get("local_rank_probe_count", 0)),
         "generated_explore_count": int(exploration_audit["generated_explore_count"]),
         "fallback_explore_count": int(exploration_audit["fallback_explore_count"]),
         "generated_anchor_stage_counts": dict(exploration_audit.get("generated_anchor_stage_counts", {})),
@@ -1831,6 +2216,8 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
         "historical_positive_residual_rows": int(blindspot_audit["historical_positive_residual_rows"]),
         "top_positive_features": list(blindspot_audit["top_positive_features"]),
         "top_positive_pairs": list(blindspot_audit["top_positive_pairs"]),
+        "batch_recommendation_scoring": batch_recommendation_scoring,
+        "batch_recommendations": batch_recommendations,
     }
 
     output_df = pd.DataFrame(output_rows)
@@ -1858,6 +2245,8 @@ def generate_next_formulations(stage_override: Optional[int], overwrite: bool) -
     write_atomic_text(output_paths["summary"], summary_text)
     write_atomic_json(output_paths["metadata"], metadata)
     write_atomic_json(output_paths["input_validation"], preflight)
+    write_atomic_json(output_paths["batch_recommendations_json"], batch_recommendations)
+    write_atomic_csv(output_paths["batch_recommendations_csv"], batch_recommendations_df)
 
     return {
         "output_dir": str(output_dir),

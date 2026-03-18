@@ -276,6 +276,56 @@ def compute_wetlab_cv_rmse(
     return float(np.sqrt(np.mean((y_val - y_pred) ** 2)))
 
 
+def train_prior_mean_model(
+    X_orig: np.ndarray,
+    y_orig: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    alpha_literature: float = ALPHA_LITERATURE,
+    alpha_wetlab: float = ALPHA_WETLAB,
+) -> Dict:
+    """Train the prior-mean composite GP without saving or activating artifacts."""
+    gp_literature, scaler_lit = fit_literature_model(
+        X_orig, y_orig, alpha_literature
+    )
+
+    X_val_lit_scaled = scaler_lit.transform(X_val)
+    y_lit_pred = gp_literature.predict(X_val_lit_scaled)
+    residuals = y_val - y_lit_pred
+
+    gp_correction, scaler_corr = fit_correction_model(
+        X_val, residuals, alpha_wetlab
+    )
+    composite_model = CompositeGP(
+        gp_literature=gp_literature,
+        gp_correction=gp_correction,
+        scaler_literature=scaler_lit,
+        scaler_correction=scaler_corr,
+    )
+    y_composite_pred = composite_model.predict(X_val)
+    train_rmse = float(np.sqrt(np.mean((y_val - y_composite_pred) ** 2)))
+    val_rmse = compute_wetlab_cv_rmse(
+        gp_literature, scaler_lit, X_val, y_val, alpha_wetlab
+    )
+    lit_rmse = float(np.sqrt(np.mean((y_val - y_lit_pred) ** 2)))
+
+    return {
+        'model': composite_model,
+        'scaler': None,
+        'is_composite_model': True,
+        'gp_literature': gp_literature,
+        'scaler_literature': scaler_lit,
+        'gp_correction': gp_correction,
+        'scaler_correction': scaler_corr,
+        'literature_rmse': lit_rmse,
+        'wetlab_train_rmse': train_rmse,
+        'validation_rmse': val_rmse,
+        'improvement': lit_rmse - val_rmse,
+        'noise_ratio': alpha_literature / alpha_wetlab,
+        'mean_residual': float(np.mean(residuals)),
+    }
+
+
 def save_composite_model(composite_model: CompositeGP, output_dir: str, metadata: Dict):
     """
     Save composite model components.
@@ -373,9 +423,12 @@ def update_model_with_prior_mean(
     print("\n--- Stage 1: Literature Model (Prior Mean) ---")
     
     print("Training literature model...")
-    gp_literature, scaler_lit = fit_literature_model(
-        X_orig, y_orig, alpha_literature
+    training = train_prior_mean_model(
+        X_orig, y_orig, X_val, y_val, alpha_literature=alpha_literature, alpha_wetlab=alpha_wetlab
     )
+    composite_model = training['model']
+    gp_literature = training['gp_literature']
+    scaler_lit = training['scaler_literature']
     print(f"Literature kernel: {gp_literature.kernel_}")
     
     # Get literature predictions at validation points
@@ -394,9 +447,7 @@ def update_model_with_prior_mean(
     print("\n--- Stage 2: Correction Model (Wet Lab Residuals) ---")
     
     print("Training correction model on residuals...")
-    gp_correction, scaler_corr = fit_correction_model(
-        X_val, residuals, alpha_wetlab
-    )
+    gp_correction = training['gp_correction']
     print(f"Correction kernel: {gp_correction.kernel_}")
     
     # =========================================================================
@@ -404,22 +455,9 @@ def update_model_with_prior_mean(
     # =========================================================================
     print("\n--- Creating Composite Model ---")
     
-    composite_model = CompositeGP(
-        gp_literature=gp_literature,
-        gp_correction=gp_correction,
-        scaler_literature=scaler_lit,
-        scaler_correction=scaler_corr
-    )
-    
-    # Evaluate composite model on wet-lab data and estimate held-out RMSE.
-    y_composite_pred = composite_model.predict(X_val)
-    train_rmse = float(np.sqrt(np.mean((y_val - y_composite_pred) ** 2)))
-    val_rmse = compute_wetlab_cv_rmse(
-        gp_literature, scaler_lit, X_val, y_val, alpha_wetlab
-    )
-    
-    # Also check literature-only RMSE for comparison
-    lit_rmse = np.sqrt(np.mean((y_val - y_lit_pred) ** 2))
+    train_rmse = training['wetlab_train_rmse']
+    val_rmse = training['validation_rmse']
+    lit_rmse = training['literature_rmse']
     
     print(f"\nValidation Performance:")
     print(f"  Literature-only RMSE: {lit_rmse:.2f}")
@@ -465,9 +503,9 @@ def update_model_with_prior_mean(
         'literature_rmse': lit_rmse,
         'wetlab_train_rmse': train_rmse,
         'validation_rmse': val_rmse,
-        'improvement': lit_rmse - val_rmse,
-        'noise_ratio': alpha_literature / alpha_wetlab,
-        'mean_residual': np.mean(residuals),
+        'improvement': training['improvement'],
+        'noise_ratio': training['noise_ratio'],
+        'mean_residual': training['mean_residual'],
     }
 
 

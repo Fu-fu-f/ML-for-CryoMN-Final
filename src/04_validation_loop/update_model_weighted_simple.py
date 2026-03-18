@@ -179,6 +179,38 @@ def compute_wetlab_cv_rmse(
 
     return float(np.sqrt(np.mean((y_val - y_pred) ** 2)))
 
+
+def train_weighted_model(
+    X_orig: np.ndarray,
+    y_orig: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    weight_multiplier: int,
+) -> Dict:
+    """Train the duplicated-sample GP without saving or activating artifacts."""
+    gp, scaler, X_val_weighted, y_val_weighted = fit_weighted_gp(
+        X_orig, y_orig, X_val, y_val, weight_multiplier
+    )
+    X_combined = np.vstack([X_orig, X_val_weighted])
+    X_val_scaled = scaler.transform(X_val)
+    y_val_pred = gp.predict(X_val_scaled)
+    train_rmse = float(np.sqrt(np.mean((y_val - y_val_pred) ** 2)))
+    val_rmse = compute_wetlab_cv_rmse(
+        X_orig, y_orig, X_val, y_val, weight_multiplier
+    )
+
+    return {
+        'model': gp,
+        'scaler': scaler,
+        'is_composite_model': False,
+        'n_validation_weighted': len(X_val_weighted),
+        'n_total': len(X_combined),
+        'wetlab_train_rmse': train_rmse,
+        'validation_rmse': val_rmse,
+        'weight_multiplier': weight_multiplier,
+        'y_val_weighted': y_val_weighted,
+    }
+
 def update_model_weighted(
     original_model_dir: str, 
     validation_data: Tuple[np.ndarray, np.ndarray],
@@ -208,27 +240,24 @@ def update_model_weighted(
     X_val, y_val = validation_data
     X_orig, y_orig = original_data
     
-    gp, scaler, X_val_weighted, y_val_weighted = fit_weighted_gp(
+    training = train_weighted_model(
         X_orig, y_orig, X_val, y_val, weight_multiplier
     )
-    X_combined = np.vstack([X_orig, X_val_weighted])
-    y_combined = np.concatenate([y_orig, y_val_weighted])
+    gp = training['model']
+    scaler = training['scaler']
+    n_validation_weighted = int(training['n_validation_weighted'])
+    n_total = int(training['n_total'])
     
     print(f"Original literature data: {len(X_orig)} samples")
     print(f"Validation data: {len(X_val)} samples")
-    print(f"Validation data (after {weight_multiplier}x weighting): {len(X_val_weighted)} samples")
-    print(f"Effective combined data: {len(X_combined)} samples")
-    print(f"Effective validation weight: {len(X_val_weighted) / len(X_combined) * 100:.1f}% of training data")
+    print(f"Validation data (after {weight_multiplier}x weighting): {n_validation_weighted} samples")
+    print(f"Effective combined data: {n_total} samples")
+    print(f"Effective validation weight: {n_validation_weighted / n_total * 100:.1f}% of training data")
     
     print("\nTraining weighted model...")
     
-    # Measure both in-sample fit and a wet-lab cross-validated RMSE.
-    X_val_scaled = scaler.transform(X_val)
-    y_val_pred = gp.predict(X_val_scaled)
-    train_rmse = float(np.sqrt(np.mean((y_val - y_val_pred) ** 2)))
-    val_rmse = compute_wetlab_cv_rmse(
-        X_orig, y_orig, X_val, y_val, weight_multiplier
-    )
+    train_rmse = training['wetlab_train_rmse']
+    val_rmse = training['validation_rmse']
     
     print(f"Optimized kernel: {gp.kernel_}")
     print(f"Wet-lab train RMSE: {train_rmse:.2f}")
@@ -273,8 +302,8 @@ def update_model_weighted(
     return {
         'n_original': len(X_orig),
         'n_validation': len(X_val),
-        'n_validation_weighted': len(X_val_weighted),
-        'n_total': len(X_combined),
+        'n_validation_weighted': n_validation_weighted,
+        'n_total': n_total,
         'wetlab_train_rmse': train_rmse,
         'validation_rmse': val_rmse,
         'weight_multiplier': weight_multiplier,

@@ -598,7 +598,19 @@ def summarize_next_formulations_hits(
         )
 
     by_origin: Dict[str, Dict[str, Optional[float]]] = {}
-    for origin in ("bo_candidate", "generated_probe", "explore_fallback"):
+    default_origins = [
+        "bo_candidate",
+        "local_rank_probe",
+        "blindspot_probe",
+        "generated_probe",
+        "explore_fallback",
+    ]
+    seen_origins = [
+        str(origin)
+        for origin in output_df.get("origin", pd.Series(dtype=str)).dropna().astype(str).tolist()
+        if origin
+    ]
+    for origin in dict.fromkeys(default_origins + seen_origins):
         output_subset = output_df[output_df["origin"] == origin]
         matched_subset = matched_df[matched_df["origin"] == origin] if not matched_df.empty else matched_df
         by_origin[origin] = summarize_next_formulations_bucket(

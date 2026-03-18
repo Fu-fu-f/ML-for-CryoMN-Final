@@ -2,7 +2,7 @@
 
 Machine learning pipeline for optimizing cryoprotective formulations for cryomicroneedle (CryoMN) technology.
 
-Repository checkpoint: `iteration_4_prior_mean` (snapshot dated 2026-03-16).
+Repository checkpoint artifacts referenced below use stage-tagged iteration directories such as `iteration_5_prior_mean`.
 
 ## Goals
 
@@ -75,9 +75,9 @@ The snapshot dated 2026-03-16 uses the composite prior-mean correction checkpoin
 | Median wet-lab viability | 35.08% |
 | Wet-lab runs at or above 50% viability | 14 |
 
-This snapshot still highlights the ectoin + ethylene glycol ridge, while the
-residual-driven `07_next_formulations` step now adapts to whichever blind spots
-are actually present in the latest completed wet-lab batch.
+The snapshot still highlights the ectoin + ethylene glycol ridge, while the
+residual-driven `07_next_formulations` step adapts to the blind spots exposed
+by completed wet-lab stages.
 
 ## Active Model and Iterations
 
@@ -114,7 +114,7 @@ General BO summary for this snapshot: `results/bo_candidates_general_iteration_4
 
 ### Next Formulations (`07_next_formulations`)
 
-The recommended next wet-lab batch now comes from:
+The recommended next wet-lab batch comes from:
 
 ```bash
 python src/07_next_formulations/next_formulations.py
@@ -122,35 +122,39 @@ python src/07_next_formulations/next_formulations.py
 
 This script:
 - resolves the active iteration automatically
-- requires the latest completed wet-lab stage to be the immediately previous stage
-- uses `05` BO outputs for 10 exploitation picks
+- requires validation coverage through stage `N-1` when targeting stage `N`
+- uses `05` BO outputs for 8 exploitation picks
 - normalizes existing and newly generated candidates so trace ingredients below `0.1%` or `1.0 mM` are treated as absent
 - adaptively relaxes the positive-residual anchor threshold when stronger anchors are unavailable
-- keeps generated residual probes ahead of BO fallback when filling the 10 exploration slots
+- builds 12 exploration/calibration rows as 8 local-rank probes plus 4 blind-spot probes, then uses BO fallback only if needed
 - allows exploration probes to anchor from any historical positive-residual wet-lab stage
+- writes recommended batch subsets for wet-lab capacities from 6 to 12 formulations
 - validates inputs before generation and validates all 20 outputs again before writing
 
-Outputs for the current active stage live in:
-- `results/next_formulations/iteration_4_prior_mean/next_formulations.csv`
-- `results/next_formulations/iteration_4_prior_mean/next_formulations_summary.txt`
-- `results/next_formulations/iteration_4_prior_mean/next_formulations_metadata.json`
-- `results/next_formulations/iteration_4_prior_mean/input_validation.json`
+Outputs are written under `results/next_formulations/<iteration_tag>/`, for example:
+- `results/next_formulations/iteration_5_prior_mean/next_formulations.csv`
+- `results/next_formulations/iteration_5_prior_mean/next_formulations_summary.txt`
+- `results/next_formulations/iteration_5_prior_mean/next_formulations_metadata.json`
+- `results/next_formulations/iteration_5_prior_mean/input_validation.json`
+- `results/next_formulations/iteration_5_prior_mean/batch_recommendations.json`
+- `results/next_formulations/iteration_5_prior_mean/batch_recommendations.csv`
 
-The summary and metadata artifacts now record which positive-residual thresholds
+The summary and metadata artifacts record which positive-residual thresholds
 were tried, which threshold was selected, how many exploration rows came
-from generated probes versus BO fallback, and which historical anchor stages
-fed the generated probes.
+from local-rank probes, blind-spot probes, and BO fallback, and which
+historical anchor stages fed the generated probes.
 
 ### Stage-Based Evaluation
 
-The repository now includes a stage-based evaluator that scores each frozen
+The repository includes a stage-based evaluator that scores each frozen
 model output against the wet-lab batch it actually generated:
 
 - standalone literature-only checkpoint in `models/literature_only/` plus outputs in `results/*` without an iteration suffix → `EXP101` to `EXP306`
 - `iteration_1_*` outputs → `EXP1101` to `EXP1206`
 - `iteration_2_*` outputs → `EXP2101` to `EXP2106`
 - `iteration_3_*` outputs → `EXP3101` to `EXP3108`
-- `iteration_4_*` outputs → pending current validation work
+- `iteration_4_*` outputs → `EXP4101` to `EXP4112`
+- `iteration_5_*` outputs → pending wet-lab results
 
 Run:
 
@@ -163,12 +167,13 @@ Outputs:
 - `results/evaluation/iteration_prospective_summary.json`
 - `results/evaluation/iteration_prospective_metrics.csv`
 - `results/evaluation/stage_performance.png`
+- `results/evaluation/next_formulations_performance.png`
 
 Candidate-hit matching in `06_evaluation_explainability` uses the same
 practical concentration floor, so frozen candidate rows still count as later
 hits when the only difference is a trace ingredient below `0.1%` or `1.0 mM`.
 
-Current stage-level metrics from the saved evaluation artifacts:
+Stage-level metrics from the saved evaluation artifacts:
 
 | Stage | Validation batch | Rows | RMSE | Spearman | Hit Rate @ 50% |
 |------|-------------------|------|------|----------|----------------|
@@ -176,14 +181,15 @@ Current stage-level metrics from the saved evaluation artifacts:
 | Iteration 1 | `EXP1101-EXP1206` | 11 | 21.67 | -0.518 | 0.909 |
 | Iteration 2 | `EXP2101-EXP2106` | 6 | 14.74 | 0.086 | 0.667 |
 | Iteration 3 | `EXP3101-EXP3108` | 8 | 21.05 | 0.476 | 0.625 |
-| Iteration 4 | current validation batch | 0 | N/A | N/A | N/A |
+| Iteration 4 | `EXP4101-EXP4112` | 12 | 9.24 | -0.600 | 0.833 |
+| Iteration 5 | pending wet-lab results | 0 | N/A | N/A | N/A |
 
 Interpretation:
 
 - absolute error improved substantially from literature-only to iteration 2
 - rank ordering is still weak, especially for literature-only and iteration 1
 - iteration 3 is a better ranker than iteration 2, but still a weak calibrated predictor
-- the new `07_next_formulations` step uses those iteration-3 residuals to choose a more balanced iteration-4 wet-lab batch
+- `07_next_formulations` uses stage residuals plus BO outputs to choose a mixed exploit/explore wet-lab batch
 
 ![Stage Performance](results/evaluation/stage_performance.png)
 
@@ -251,10 +257,10 @@ For detailed interpretation and additional visualizations, see [`src/06_evaluati
 | `01_data_parsing` | Data Parsing & Normalization | Preparing clean, structured training data from raw literature |
 | `02_model_training` | Gaussian Process Regression (Matérn Kernel) | Learning the viability landscape from limited data |
 | `03_optimization` | Random sampling, iteration-aware model loading | Quick generation, metadata repair when active model state is inconsistent |
-| `04_validation_loop` | Three update strategies + iteration checkpointing | Closing the active learning loop with wet lab feedback |
+| `04_validation_loop` | Three update strategies + iteration checkpointing + shadow method comparison helpers | Closing the active learning loop with wet lab feedback and comparing candidate update methods without activation |
 | `05_bo_optimization` | Differential Evolution with batched population scoring, wet-lab-aware BO context, shared iteration-aware model loading | Exploiting validated winners while proposing nearby informative variants |
-| `06_evaluation_explainability` | Stage-based evaluation, SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Measuring frozen-stage performance and understanding model drivers |
-| `07_next_formulations` | Strict next-batch generation from BO outputs + residual blind spots | Selecting exactly 20 future wet-lab formulations with a fixed 10 exploit / 10 explore split |
+| `06_evaluation_explainability` | Stage-based evaluation, recommendation-slate auditing, SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Measuring frozen-stage performance, auditing `07` outputs, and understanding model drivers |
+| `07_next_formulations` | Strict next-batch generation from BO outputs + residual blind spots + smaller-batch subset recommendation | Selecting exactly 20 future wet-lab formulations with an 8 exploit / 12 explore split and recommending subsets for batch sizes 6 through 12 |
 
 ## Key Features
 
@@ -272,3 +278,4 @@ For detailed interpretation and additional visualizations, see [`src/06_evaluati
 - **Wet-lab-aware BO** (`05` uses weighted observed context and seeds from top observed formulations)
 - **Vectorized DE scoring** (`05` evaluates each DE population in batches so GP prediction and penalty calculations are not repeated point-by-point)
 - **Strict next-batch planning** (`07` validates inputs, generates calibration probes from residual blind spots, and writes traceable next-batch artifacts)
+- **Subset recommendation for limited wet-lab capacity** (`07` writes exact best-subset recommendations for batch sizes 6 through 12)

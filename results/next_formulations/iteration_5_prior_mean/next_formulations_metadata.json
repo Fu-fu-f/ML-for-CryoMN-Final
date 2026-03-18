@@ -11,20 +11,21 @@
     2.0,
     0.0
   ],
-  "selected_positive_residual_threshold": 8.0,
-  "anchor_count_at_selected_threshold": 7,
-  "generated_pool_rows_at_selected_threshold": 22,
-  "generated_explore_count": 10,
-  "fallback_explore_count": 0,
+  "selected_positive_residual_threshold": 10.0,
+  "anchor_count_at_selected_threshold": 6,
+  "generated_pool_rows_at_selected_threshold": 18,
+  "local_rank_anchor_count": 4,
+  "local_rank_probe_count": 6,
+  "generated_explore_count": 4,
+  "fallback_explore_count": 2,
   "generated_anchor_stage_counts": {
-    "1": 3,
-    "2": 14,
-    "3": 5,
-    "4": 4
+    "1": 2,
+    "2": 13,
+    "3": 5
   },
   "generated_anchor_stage_range": [
     1,
-    4
+    3
   ],
   "generated_top_anchor_pairs": [
     {
@@ -46,14 +47,14 @@
         "ectoin_M",
         "ethylene_glycol_M"
       ],
-      "count": 3
+      "count": 2
     },
     {
       "pair": [
         "ethylene_glycol_M",
         "fbs_pct"
       ],
-      "count": 3
+      "count": 2
     },
     {
       "pair": [
@@ -78,13 +79,6 @@
     },
     {
       "pair": [
-        "ectoin_M",
-        "fbs_pct"
-      ],
-      "count": 2
-    },
-    {
-      "pair": [
         "hsa_pct",
         "peg_3350_pct"
       ],
@@ -93,15 +87,15 @@
   ],
   "meaningful_actual_min": 50.0,
   "min_exploration_prediction": 30.0,
-  "exploit_count": 10,
-  "explore_count": 10,
+  "exploit_count": 8,
+  "explore_count": 12,
   "effective_max_ingredients": 6,
   "dmso_cap_percent": 5.0,
   "candidate_files": [
     "results/bo_candidates_general_iteration_5_prior_mean.csv",
     "results/bo_candidates_dmso_free_iteration_5_prior_mean.csv"
   ],
-  "used_exploration_fallback": false,
+  "used_exploration_fallback": true,
   "blindspot_signal_mode": "historical_residual_hybrid",
   "blindspot_stage_range": [
     0,
@@ -322,6 +316,881 @@
       "pair": [
         "hsa_pct",
         "peg_3350_pct"
+      ]
+    }
+  ],
+  "batch_recommendation_scoring": {
+    "batch_size_range": [
+      6,
+      12
+    ],
+    "target_mix_basis": {
+      "exploit_count": 8,
+      "local_rank_probe_count": 8,
+      "blindspot_probe_count": 4,
+      "total_count": 20
+    },
+    "row_score_weights": {
+      "exploit": {
+        "pred_norm": 0.7,
+        "confidence_norm": 0.2,
+        "novelty_norm": 0.1
+      },
+      "local_rank_probe": {
+        "pred_norm": 0.4,
+        "unc_norm": 0.3,
+        "blindspot_norm": 0.2,
+        "novelty_norm": 0.1
+      },
+      "blindspot_probe": {
+        "pred_norm": 0.2,
+        "unc_norm": 0.35,
+        "blindspot_norm": 0.35,
+        "novelty_norm": 0.1
+      },
+      "explore_fallback": {
+        "pred_norm": 0.15,
+        "unc_norm": 0.35,
+        "blindspot_norm": 0.25,
+        "novelty_norm": 0.15,
+        "penalty": -0.05
+      }
+    },
+    "subset_score_adjustments": {
+      "chemistry_family_bonus": 0.1,
+      "local_anchor_bonus": 0.08,
+      "type_penalty_weights": {
+        "exploit": 0.45,
+        "local_rank": 0.35,
+        "blindspot": 0.25
+      }
+    }
+  },
+  "batch_recommendations": [
+    {
+      "batch_size": 6,
+      "heuristic_score": 4.8516,
+      "target_counts": {
+        "exploit": 2,
+        "local_rank": 2,
+        "blindspot": 2
+      },
+      "selected_counts": {
+        "exploit": 2,
+        "local_rank": 2,
+        "blindspot": 2
+      },
+      "mean_predicted_viability": 61.9583,
+      "mean_uncertainty": 18.4778,
+      "unique_chemistry_families": 5,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 16,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 8,
+          "predicted_viability": 43.3872,
+          "uncertainty": 19.4083,
+          "batch_utility": 0.6568,
+          "formulation": "528.0mM dmso + 100.0mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 7,
+      "heuristic_score": 5.6276,
+      "target_counts": {
+        "exploit": 3,
+        "local_rank": 3,
+        "blindspot": 1
+      },
+      "selected_counts": {
+        "exploit": 3,
+        "local_rank": 3,
+        "blindspot": 1
+      },
+      "mean_predicted_viability": 67.3708,
+      "mean_uncertainty": 18.0946,
+      "unique_chemistry_families": 5,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 8,
+      "heuristic_score": 6.3844,
+      "target_counts": {
+        "exploit": 3,
+        "local_rank": 3,
+        "blindspot": 2
+      },
+      "selected_counts": {
+        "exploit": 3,
+        "local_rank": 3,
+        "blindspot": 2
+      },
+      "mean_predicted_viability": 64.3728,
+      "mean_uncertainty": 18.2588,
+      "unique_chemistry_families": 6,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        },
+        {
+          "selection_order": 8,
+          "recommendation_id": 16,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 8,
+          "predicted_viability": 43.3872,
+          "uncertainty": 19.4083,
+          "batch_utility": 0.6568,
+          "formulation": "528.0mM dmso + 100.0mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 9,
+      "heuristic_score": 7.0226,
+      "target_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 1
+      },
+      "selected_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 1
+      },
+      "mean_predicted_viability": 68.9482,
+      "mean_uncertainty": 17.6668,
+      "unique_chemistry_families": 5,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 1,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 1,
+          "predicted_viability": 74.7356,
+          "uncertainty": 16.5087,
+          "batch_utility": 0.8802,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 9,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 1,
+          "predicted_viability": 74.2028,
+          "uncertainty": 15.83,
+          "batch_utility": 0.5148,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 8,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 9,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 10,
+      "heuristic_score": 7.7794,
+      "target_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 2
+      },
+      "selected_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 2
+      },
+      "mean_predicted_viability": 66.3921,
+      "mean_uncertainty": 17.8409,
+      "unique_chemistry_families": 6,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 1,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 1,
+          "predicted_viability": 74.7356,
+          "uncertainty": 16.5087,
+          "batch_utility": 0.8802,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 9,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 1,
+          "predicted_viability": 74.2028,
+          "uncertainty": 15.83,
+          "batch_utility": 0.5148,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 8,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 9,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        },
+        {
+          "selection_order": 10,
+          "recommendation_id": 16,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 8,
+          "predicted_viability": 43.3872,
+          "uncertainty": 19.4083,
+          "batch_utility": 0.6568,
+          "formulation": "528.0mM dmso + 100.0mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 11,
+      "heuristic_score": 8.4219,
+      "target_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 3
+      },
+      "selected_counts": {
+        "exploit": 4,
+        "local_rank": 4,
+        "blindspot": 3
+      },
+      "mean_predicted_viability": 64.1935,
+      "mean_uncertainty": 17.9658,
+      "unique_chemistry_families": 6,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 1,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 1,
+          "predicted_viability": 74.7356,
+          "uncertainty": 16.5087,
+          "batch_utility": 0.8802,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 9,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 1,
+          "predicted_viability": 74.2028,
+          "uncertainty": 15.83,
+          "batch_utility": 0.5148,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 8,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 9,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        },
+        {
+          "selection_order": 10,
+          "recommendation_id": 16,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 8,
+          "predicted_viability": 43.3872,
+          "uncertainty": 19.4083,
+          "batch_utility": 0.6568,
+          "formulation": "528.0mM dmso + 100.0mM sucrose"
+        },
+        {
+          "selection_order": 11,
+          "recommendation_id": 17,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 9,
+          "predicted_viability": 42.2078,
+          "uncertainty": 19.2152,
+          "batch_utility": 0.6425,
+          "formulation": "528.0mM dmso + 75.0mM sucrose"
+        }
+      ]
+    },
+    {
+      "batch_size": 12,
+      "heuristic_score": 9.1583,
+      "target_counts": {
+        "exploit": 5,
+        "local_rank": 5,
+        "blindspot": 2
+      },
+      "selected_counts": {
+        "exploit": 5,
+        "local_rank": 5,
+        "blindspot": 2
+      },
+      "mean_predicted_viability": 67.6514,
+      "mean_uncertainty": 17.5513,
+      "unique_chemistry_families": 6,
+      "rows": [
+        {
+          "selection_order": 1,
+          "recommendation_id": 1,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 1,
+          "predicted_viability": 74.7356,
+          "uncertainty": 16.5087,
+          "batch_utility": 0.8802,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs"
+        },
+        {
+          "selection_order": 2,
+          "recommendation_id": 2,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 2,
+          "predicted_viability": 74.1595,
+          "uncertainty": 16.4636,
+          "batch_utility": 0.8719,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.79M ethylene_glycol + 5.4% fbs"
+        },
+        {
+          "selection_order": 3,
+          "recommendation_id": 3,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 3,
+          "predicted_viability": 71.9125,
+          "uncertainty": 15.9649,
+          "batch_utility": 0.8477,
+          "formulation": "704.0mM dmso"
+        },
+        {
+          "selection_order": 4,
+          "recommendation_id": 5,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 5,
+          "predicted_viability": 71.4289,
+          "uncertainty": 15.9873,
+          "batch_utility": 0.8391,
+          "formulation": "704.0mM dmso + 2.0% fbs"
+        },
+        {
+          "selection_order": 5,
+          "recommendation_id": 6,
+          "recommendation_type": "exploit",
+          "origin": "bo_candidate",
+          "bucket_rank": 6,
+          "predicted_viability": 70.9846,
+          "uncertainty": 17.6392,
+          "batch_utility": 0.7891,
+          "formulation": "243.6mM ectoin + 1.71M ethylene_glycol"
+        },
+        {
+          "selection_order": 6,
+          "recommendation_id": 9,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 1,
+          "predicted_viability": 74.2028,
+          "uncertainty": 15.83,
+          "batch_utility": 0.5148,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs"
+        },
+        {
+          "selection_order": 7,
+          "recommendation_id": 10,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 2,
+          "predicted_viability": 72.1173,
+          "uncertainty": 17.7577,
+          "batch_utility": 0.57,
+          "formulation": "11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs"
+        },
+        {
+          "selection_order": 8,
+          "recommendation_id": 12,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 4,
+          "predicted_viability": 72.2482,
+          "uncertainty": 17.5642,
+          "batch_utility": 0.5637,
+          "formulation": "21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs"
+        },
+        {
+          "selection_order": 9,
+          "recommendation_id": 13,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 5,
+          "predicted_viability": 73.7364,
+          "uncertainty": 15.743,
+          "batch_utility": 0.507,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 1.73M ethylene_glycol + 2.3% fbs"
+        },
+        {
+          "selection_order": 10,
+          "recommendation_id": 14,
+          "recommendation_type": "explore",
+          "origin": "local_rank_probe",
+          "bucket_rank": 6,
+          "predicted_viability": 69.4077,
+          "uncertainty": 18.2751,
+          "batch_utility": 0.5645,
+          "formulation": "7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs"
+        },
+        {
+          "selection_order": 11,
+          "recommendation_id": 15,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 7,
+          "predicted_viability": 43.4963,
+          "uncertainty": 23.4736,
+          "batch_utility": 0.7135,
+          "formulation": "1.84M propylene_glycol + 299.3mM sucrose"
+        },
+        {
+          "selection_order": 12,
+          "recommendation_id": 16,
+          "recommendation_type": "explore",
+          "origin": "blindspot_probe",
+          "bucket_rank": 8,
+          "predicted_viability": 43.3872,
+          "uncertainty": 19.4083,
+          "batch_utility": 0.6568,
+          "formulation": "528.0mM dmso + 100.0mM sucrose"
+        }
       ]
     }
   ]

@@ -151,6 +151,32 @@ def compute_wetlab_cv_rmse(
 
     return float(np.sqrt(np.mean((y_val - y_pred) ** 2)))
 
+
+def train_standard_model(
+    X_orig: np.ndarray,
+    y_orig: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+) -> Dict:
+    """Train the standard GP without saving or activating artifacts."""
+    X_combined = np.vstack([X_orig, X_val])
+    y_combined = np.concatenate([y_orig, y_val])
+    gp, scaler = fit_standard_gp(X_combined, y_combined)
+
+    X_val_scaled = scaler.transform(X_val)
+    y_val_pred = gp.predict(X_val_scaled)
+    train_rmse = float(np.sqrt(np.mean((y_val - y_val_pred) ** 2)))
+    val_rmse = compute_wetlab_cv_rmse(X_orig, y_orig, X_val, y_val)
+
+    return {
+        'model': gp,
+        'scaler': scaler,
+        'is_composite_model': False,
+        'n_total': len(X_combined),
+        'wetlab_train_rmse': train_rmse,
+        'validation_rmse': val_rmse,
+    }
+
 def update_model(
     original_model_dir: str,
     validation_data: Tuple[np.ndarray, np.ndarray],
@@ -184,13 +210,11 @@ def update_model(
     print(f"Combined data: {len(X_combined)} samples")
     
     print("Training updated model...")
-    gp, scaler = fit_standard_gp(X_combined, y_combined)
-
-    # Measure both in-sample fit and a wet-lab cross-validated RMSE.
-    X_val_scaled = scaler.transform(X_val)
-    y_val_pred = gp.predict(X_val_scaled)
-    train_rmse = float(np.sqrt(np.mean((y_val - y_val_pred) ** 2)))
-    val_rmse = compute_wetlab_cv_rmse(X_orig, y_orig, X_val, y_val)
+    training = train_standard_model(X_orig, y_orig, X_val, y_val)
+    gp = training['model']
+    scaler = training['scaler']
+    train_rmse = training['wetlab_train_rmse']
+    val_rmse = training['validation_rmse']
     
     print(f"Optimized kernel: {gp.kernel_}")
     print(f"Wet-lab train RMSE: {train_rmse:.2f}")

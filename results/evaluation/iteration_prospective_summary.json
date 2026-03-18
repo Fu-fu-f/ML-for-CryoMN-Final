@@ -1409,7 +1409,7 @@
       },
       "by_recommendation_type": {
         "exploit": {
-          "n_rows_in_output": 10,
+          "n_rows_in_output": 8,
           "n_tested_later": 0,
           "tested_fraction": 0.0,
           "mean_predicted_viability": null,
@@ -1428,7 +1428,7 @@
           "fraction_residual_ge_10": null
         },
         "explore": {
-          "n_rows_in_output": 10,
+          "n_rows_in_output": 12,
           "n_tested_later": 0,
           "tested_fraction": 0.0,
           "mean_predicted_viability": null,
@@ -1449,7 +1449,45 @@
       },
       "by_origin": {
         "bo_candidate": {
-          "n_rows_in_output": 10,
+          "n_rows_in_output": 8,
+          "n_tested_later": 0,
+          "tested_fraction": 0.0,
+          "mean_predicted_viability": null,
+          "mean_uncertainty": null,
+          "mean_actual_viability": null,
+          "best_actual_viability": null,
+          "hit_rate_ge_50": null,
+          "hit_rate_ge_70": null,
+          "mean_signed_residual": null,
+          "mean_abs_residual": null,
+          "rmse": null,
+          "coverage_1sigma": null,
+          "coverage_2sigma": null,
+          "fraction_actual_gt_predicted": null,
+          "fraction_residual_ge_5": null,
+          "fraction_residual_ge_10": null
+        },
+        "local_rank_probe": {
+          "n_rows_in_output": 6,
+          "n_tested_later": 0,
+          "tested_fraction": 0.0,
+          "mean_predicted_viability": null,
+          "mean_uncertainty": null,
+          "mean_actual_viability": null,
+          "best_actual_viability": null,
+          "hit_rate_ge_50": null,
+          "hit_rate_ge_70": null,
+          "mean_signed_residual": null,
+          "mean_abs_residual": null,
+          "rmse": null,
+          "coverage_1sigma": null,
+          "coverage_2sigma": null,
+          "fraction_actual_gt_predicted": null,
+          "fraction_residual_ge_5": null,
+          "fraction_residual_ge_10": null
+        },
+        "blindspot_probe": {
+          "n_rows_in_output": 4,
           "n_tested_later": 0,
           "tested_fraction": 0.0,
           "mean_predicted_viability": null,
@@ -1468,9 +1506,9 @@
           "fraction_residual_ge_10": null
         },
         "generated_probe": {
-          "n_rows_in_output": 10,
+          "n_rows_in_output": 0,
           "n_tested_later": 0,
-          "tested_fraction": 0.0,
+          "tested_fraction": null,
           "mean_predicted_viability": null,
           "mean_uncertainty": null,
           "mean_actual_viability": null,
@@ -1487,9 +1525,9 @@
           "fraction_residual_ge_10": null
         },
         "explore_fallback": {
-          "n_rows_in_output": 0,
+          "n_rows_in_output": 2,
           "n_tested_later": 0,
-          "tested_fraction": null,
+          "tested_fraction": 0.0,
           "mean_predicted_viability": null,
           "mean_uncertainty": null,
           "mean_actual_viability": null,

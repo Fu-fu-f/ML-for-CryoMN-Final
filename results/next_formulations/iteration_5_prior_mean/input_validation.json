@@ -48,20 +48,21 @@
     2.0,
     0.0
   ],
-  "selected_positive_residual_threshold": 8.0,
-  "anchor_count_at_selected_threshold": 7,
-  "generated_pool_rows_at_selected_threshold": 22,
-  "generated_explore_count": 10,
-  "fallback_explore_count": 0,
+  "selected_positive_residual_threshold": 10.0,
+  "anchor_count_at_selected_threshold": 6,
+  "generated_pool_rows_at_selected_threshold": 18,
+  "local_rank_anchor_count": 4,
+  "local_rank_probe_count": 6,
+  "generated_explore_count": 4,
+  "fallback_explore_count": 2,
   "generated_anchor_stage_counts": {
-    "1": 3,
-    "2": 14,
-    "3": 5,
-    "4": 4
+    "1": 2,
+    "2": 13,
+    "3": 5
   },
   "generated_anchor_stage_range": [
     1,
-    4
+    3
   ],
   "generated_top_anchor_pairs": [
     {
@@ -83,14 +84,14 @@
         "ectoin_M",
         "ethylene_glycol_M"
       ],
-      "count": 3
+      "count": 2
     },
     {
       "pair": [
         "ethylene_glycol_M",
         "fbs_pct"
       ],
-      "count": 3
+      "count": 2
     },
     {
       "pair": [
@@ -115,13 +116,6 @@
     },
     {
       "pair": [
-        "ectoin_M",
-        "fbs_pct"
-      ],
-      "count": 2
-    },
-    {
-      "pair": [
         "hsa_pct",
         "peg_3350_pct"
       ],
@@ -133,36 +127,36 @@
       "positive_residual_threshold": 10.0,
       "anchor_count": 6,
       "generated_pool_rows": 18,
-      "strict_selected_rows": 8,
-      "relaxed_selected_rows": 10
+      "strict_selected_rows": 4,
+      "relaxed_selected_rows": 4
     },
     {
       "positive_residual_threshold": 8.0,
       "anchor_count": 7,
       "generated_pool_rows": 22,
-      "strict_selected_rows": 10,
-      "relaxed_selected_rows": 10
+      "strict_selected_rows": 4,
+      "relaxed_selected_rows": 4
     },
     {
       "positive_residual_threshold": 5.0,
       "anchor_count": 9,
       "generated_pool_rows": 25,
-      "strict_selected_rows": 10,
-      "relaxed_selected_rows": 10
+      "strict_selected_rows": 4,
+      "relaxed_selected_rows": 4
     },
     {
       "positive_residual_threshold": 2.0,
       "anchor_count": 14,
       "generated_pool_rows": 26,
-      "strict_selected_rows": 10,
-      "relaxed_selected_rows": 10
+      "strict_selected_rows": 4,
+      "relaxed_selected_rows": 4
     },
     {
       "positive_residual_threshold": 0.0,
       "anchor_count": 16,
       "generated_pool_rows": 27,
-      "strict_selected_rows": 10,
-      "relaxed_selected_rows": 10
+      "strict_selected_rows": 4,
+      "relaxed_selected_rows": 4
     }
   ],
   "blindspot_signal_mode": "historical_residual_hybrid",

@@ -47,8 +47,8 @@ These BO outputs are also the exploitation input to
 `src/07_next_formulations/next_formulations.py`, which builds the final
 20-formulation wet-lab batch by combining:
 
-- 10 exploitation picks from these `05` BO candidate files
-- 10 exploration/calibration probes generated from residual blind spots
+- 8 exploitation picks from these `05` BO candidate files
+- 12 exploration/calibration probes assembled from local-rank probes, blind-spot probes, and BO fallback if needed
 
 `<iteration_tag>` comes from the resolved active model identity, for example:
 - `iteration_1`
@@ -147,4 +147,4 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 
 - **`03_optimization`**: Quick candidate generation, initial exploration, when speed matters
 - **`05_bo_optimization`**: Serious optimization, when you want to preserve the best validated recipes and explore high-value local variants around them
-- **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 10 exploit / 10 explore split and full input/output validation
+- **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 8 exploit / 12 explore split, smaller-batch subset recommendations, and full input/output validation

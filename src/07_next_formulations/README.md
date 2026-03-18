@@ -6,8 +6,8 @@ This module builds the next wet-lab batch from the active model state.
 
 It always writes exactly **20 formulations**:
 
-- **10 exploitation** picks from the active iteration's `05_bo_optimization` outputs
-- **10 exploration/calibration** picks chosen from generated residual probes first, then BO fallback only if needed
+- **8 exploitation** picks from the active iteration's `05_bo_optimization` outputs
+- **12 exploration/calibration** picks assembled from local-rank probes, blind-spot probes, and BO fallback only if needed
 
 The script is intentionally strict. It validates required inputs before
 generation, validates all 20 outputs again before write, and aborts without
@@ -36,7 +36,7 @@ python src/07_next_formulations/next_formulations.py --overwrite
 - `results/bo_candidates_dmso_free_<iteration_tag>.csv`
 
 The stage sequence must be contiguous. If the active stage is iteration `N`,
-the latest completed wet-lab stage in `validation_results.csv` must be `N-1`.
+`validation_results.csv` must contain completed wet-lab results through stage `N-1`.
 
 ## Selection Logic
 
@@ -46,19 +46,20 @@ the latest completed wet-lab stage in `validation_results.csv` must be `N-1`.
 - normalize loaded BO candidates with the same practical concentration floor used by `05`
 - drop already tested formulations
 - rank by predicted viability with uncertainty and acquisition tie-breaks
-- keep a simple chemistry-family diversity cap so the final 10 are not all near-duplicates
+- keep a simple chemistry-family diversity cap so the final 8 are not all near-duplicates
 
 ### Exploration / Calibration
 
-- compute residuals on the latest completed wet-lab batch using that batch's frozen model
+- compute residuals on stage `N-1` using that stage's frozen model
 - aggregate historical positive-residual anchors across all completed wet-lab stages
 - try positive-residual anchor thresholds in descending order: `10.0`, `8.0`, `5.0`, `2.0`, `0.0`
 - convert positive residuals into feature-level and pair-level blind-spot signals
-- generate probes by midpoint interpolation or local perturbation around underpredicted anchors from any historical positive-residual stage
+- generate local-rank probes from the top exploitation anchors by scaling the top two active ingredients down and up
+- generate blind-spot probes by midpoint interpolation or local perturbation around underpredicted anchors from historical positive-residual stages
 - clip to BO bounds, zero sub-threshold trace ingredients, and enforce the BO-derived ingredient-count limit
 - re-score with the active model
-- keep generated probes ahead of BO fallback, even if a relaxed family cap is needed to fill the exploration bucket
-- backfill from BO only if fewer than 10 valid generated probes survive after the generated-only top-up pass
+- keep local-rank and blind-spot probes ahead of BO fallback, even if a relaxed family cap is needed to fill the exploration bucket
+- backfill from BO only if fewer than 12 valid exploration rows survive after the generated-only top-up pass
 
 This is why `07` does not use `03_optimization` as a primary source. The
 exploration half is designed directly from model failures, not from a random
@@ -72,6 +73,8 @@ Outputs are written under:
 - `results/next_formulations/<iteration_tag>/next_formulations_summary.txt`
 - `results/next_formulations/<iteration_tag>/next_formulations_metadata.json`
 - `results/next_formulations/<iteration_tag>/input_validation.json`
+- `results/next_formulations/<iteration_tag>/batch_recommendations.json`
+- `results/next_formulations/<iteration_tag>/batch_recommendations.csv`
 
 `next_formulations.csv` includes:
 
@@ -83,6 +86,18 @@ Outputs are written under:
 - canonical feature columns in model order
 - formulation text and rationale
 
+`batch_recommendations.json` and `batch_recommendations.csv` include one
+recommended subset for each wet-lab batch size from 6 through 12. The subset
+search is exact over the generated 20-row slate and uses a heuristic utility
+score that balances:
+
+- predicted viability
+- uncertainty
+- blind-spot value
+- novelty
+- chemistry-family diversity
+- the intended exploit / local-rank / blind-spot mix
+
 Displayed formulation identity follows the same floor as BO generation and `06`
 matching:
 
@@ -91,8 +106,9 @@ matching:
 
 The metadata and input-validation artifacts also record which residual thresholds
 were tried, which threshold was selected, how many exploration rows came
-from generated probes versus BO fallback, and which historical anchor stages
-fed the generated probes.
+from local-rank probes, blind-spot probes, and BO fallback, which historical
+anchor stages fed the generated probes, and how each recommended smaller batch
+was scored.
 
 ## Failure Mode
 
