@@ -320,17 +320,56 @@ def align_candidate_df(candidate_df: pd.DataFrame, feature_names: Sequence[str])
     for feature_name in feature_names:
         if feature_name not in aligned.columns:
             aligned[feature_name] = 0.0
+        aligned[feature_name] = pd.to_numeric(aligned[feature_name], errors="coerce").fillna(0.0)
     return normalize_formulation_dataframe(aligned, feature_names)
+
+
+def rescore_candidate_df(
+    candidate_df: pd.DataFrame,
+    feature_names: Sequence[str],
+    model,
+    scaler,
+    is_composite_model: bool,
+) -> pd.DataFrame:
+    """Normalize candidate rows, recompute scores, and derive an effective rank."""
+    rescored = align_candidate_df(candidate_df, feature_names).copy()
+    if "rank" in rescored.columns:
+        source_rank = pd.to_numeric(rescored["rank"], errors="coerce")
+        source_rank = source_rank.where(source_rank.notna(), pd.Series(range(1, len(rescored) + 1)))
+    else:
+        source_rank = pd.Series(range(1, len(rescored) + 1), index=rescored.index, dtype=float)
+    rescored["source_rank"] = source_rank.astype(int)
+
+    X = rescored.reindex(columns=feature_names, fill_value=0.0).fillna(0.0).to_numpy(float)
+    pred_mean, pred_std = predict(model, scaler, X, is_composite_model)
+    rescored["predicted_viability"] = pred_mean
+    rescored["uncertainty"] = pred_std
+    rescored = rescored.sort_values(
+        ["predicted_viability", "source_rank"],
+        ascending=[False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
+    rescored["effective_rank"] = np.arange(1, len(rescored) + 1)
+    return rescored
 
 
 def summarize_candidate_hits(
     candidate_path: str,
     future_validation_df: pd.DataFrame,
     feature_names: Sequence[str],
+    model,
+    scaler,
+    is_composite_model: bool,
 ) -> Dict[str, object]:
     """Evaluate one frozen candidate file against later wet-lab matches."""
     candidate_df = pd.read_csv(candidate_path)
-    candidate_df = align_candidate_df(candidate_df, feature_names).fillna(0.0)
+    candidate_df = rescore_candidate_df(
+        candidate_df,
+        feature_names,
+        model,
+        scaler,
+        is_composite_model,
+    ).fillna(0.0)
     lookup = build_signature_lookup(future_validation_df, feature_names)
 
     matched_rows: List[dict] = []
@@ -342,7 +381,9 @@ def summarize_candidate_hits(
         for match in tested_matches:
             matched_rows.append(
                 {
-                    "rank": int(row["rank"]),
+                    "rank": int(row["effective_rank"]),
+                    "source_rank": int(row["source_rank"]),
+                    "effective_rank": int(row["effective_rank"]),
                     "predicted_viability": float(row["predicted_viability"]),
                     "uncertainty": float(row["uncertainty"]),
                     "experiment_id": match["experiment_id"],
@@ -362,7 +403,7 @@ def summarize_candidate_hits(
     }
 
     for k in (3, 5, 10):
-        subset = matched_df[matched_df["rank"] <= k] if not matched_df.empty else matched_df
+        subset = matched_df[matched_df["effective_rank"] <= k] if not matched_df.empty else matched_df
         summary["top_k"][f"top_{k}"] = {
             "tested_count": int(len(subset)),
             "tested_fraction": round_or_none(len(subset) / min(k, len(candidate_df))) if len(candidate_df) else None,
@@ -373,7 +414,7 @@ def summarize_candidate_hits(
         }
 
     if not matched_df.empty:
-        preview = matched_df.sort_values(["rank", "experiment_date", "experiment_id"]).head(10)
+        preview = matched_df.sort_values(["effective_rank", "experiment_date", "experiment_id"]).head(10)
         summary["tested_examples"] = preview.to_dict(orient="records")
 
     return summary
@@ -390,7 +431,14 @@ def evaluate_stage(stage_record: StageRecord, validation_df: pd.DataFrame) -> Di
     model, scaler = load_model(stage_record)
     batch_df = validation_batch_for_stage(validation_df, stage_record.stage)
     candidate_summaries = [
-        summarize_candidate_hits(path, batch_df, stage_record.feature_names)
+        summarize_candidate_hits(
+            path,
+            batch_df,
+            stage_record.feature_names,
+            model,
+            scaler,
+            stage_record.is_composite_model,
+        )
         for path in candidate_files_for_stage(stage_record.stage)
     ]
 

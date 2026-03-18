@@ -19,45 +19,45 @@ Top blind-spot features: sucrose, dmso, propylene_glycol, ethylene_glycol, ectoi
 Top blind-spot pairs: dmso + sucrose, propylene_glycol + sucrose, ectoin + ethylene_glycol, ethylene_glycol + fbs, ethylene_glycol + proline
 
 Exploitation picks:
-- 0.0% dextran + 10.1mM dmso + 289.7mM ectoin + 1.79M ethylene_glycol + 5.6% fbs + 0.5% hsa
+- 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs
   origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 1)
-  predicted viability: 75.38% +/- 16.60%
+  predicted viability: 74.74% +/- 16.51%
   rationale: Top BO exploitation candidate with strong predicted viability.
-- 304.7mM ectoin + 1.83M ethylene_glycol + 7.6% fbs
+- 21.0mM dmso + 291.1mM ectoin + 1.79M ethylene_glycol + 5.4% fbs
   origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 3)
-  predicted viability: 74.59% +/- 16.69%
-  rationale: Top BO exploitation candidate with strong predicted viability.
-- 21.8mM dmso + 290.9mM ectoin + 1.82M ethylene_glycol + 4.5% fbs + 0.4% hsa
-  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 4)
-  predicted viability: 74.47% +/- 16.67%
-  rationale: Top BO exploitation candidate with strong predicted viability.
-- 26.8mM dmso + 300.0mM ectoin + 1.82M ethylene_glycol + 1.4% fbs
-  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 9)
-  predicted viability: 72.89% +/- 16.30%
+  predicted viability: 74.16% +/- 16.46%
   rationale: Top BO exploitation candidate with strong predicted viability.
 - 704.0mM dmso
-  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 9)
+  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 8)
   predicted viability: 71.91% +/- 15.96%
   rationale: Top BO exploitation candidate with strong predicted viability.
+- 7.9mM dmso + 317.1mM ectoin + 1.92M ethylene_glycol + 2.6% fbs
+  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 6)
+  predicted viability: 73.21% +/- 16.62%
+  rationale: Top BO exploitation candidate with strong predicted viability.
 - 704.0mM dmso + 2.0% fbs
-  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 11)
+  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 12)
   predicted viability: 71.43% +/- 15.99%
   rationale: Top BO exploitation candidate with strong predicted viability.
-- 35.3mM dmso + 294.2mM ectoin + 1.83M ethylene_glycol + 4.4% fbs + 0.4% hsa + 0.0% methylcellulose
-  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 8)
-  predicted viability: 73.17% +/- 17.03%
+- 243.6mM ectoin + 1.71M ethylene_glycol
+  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 14)
+  predicted viability: 70.98% +/- 17.64%
   rationale: Top BO exploitation candidate with strong predicted viability.
-- 290.0mM ectoin + 1.75M ethylene_glycol + 0.5% fbs + 0.7% hsa + 0.2% methylcellulose + 0.0% peg_3350
-  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 6)
-  predicted viability: 73.26% +/- 17.19%
+- 268.8mM ectoin + 1.97M ethylene_glycol
+  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 13)
+  predicted viability: 71.08% +/- 17.80%
   rationale: Top BO exploitation candidate with strong predicted viability.
-- 0.0% dextran + 304.1mM ectoin + 1.86M ethylene_glycol + 3.0% fbs + 0.2% hsa + 0.3% methylcellulose
-  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 4)
-  predicted viability: 73.23% +/- 17.18%
+- 704.0mM dmso + 10.0% fbs
+  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 20)
+  predicted viability: 66.68% +/- 17.11%
   rationale: Top BO exploitation candidate with strong predicted viability.
-- 286.1mM ectoin + 1.63M ethylene_glycol + 9.5% fbs + 0.8% hsa + 0.1% methylcellulose + 0.2% pvp
-  origin: bo_candidate (bo_candidates_general_iteration_5_prior_mean.csv rank 6)
-  predicted viability: 73.07% +/- 17.38%
+- 70.0mM dmso
+  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 18)
+  predicted viability: 33.35% +/- 18.33%
+  rationale: Top BO exploitation candidate with strong predicted viability.
+- 70.0mM dmso + 2.0% fbs
+  origin: bo_candidate (bo_candidates_dmso_free_iteration_5_prior_mean.csv rank 19)
+  predicted viability: 33.08% +/- 18.34%
   rationale: Top BO exploitation candidate with strong predicted viability.
 
 Exploration / calibration picks:

@@ -97,7 +97,9 @@
         "tested_examples": [
           {
             "rank": 1,
-            "predicted_viability": 81.58493639858662,
+            "source_rank": 1,
+            "effective_rank": 1,
+            "predicted_viability": 81.58493639858663,
             "uncertainty": 20.753430806875475,
             "experiment_id": "EXP101",
             "experiment_date": "2/4/26",
@@ -106,6 +108,8 @@
           },
           {
             "rank": 2,
+            "source_rank": 2,
+            "effective_rank": 2,
             "predicted_viability": 81.28847313760885,
             "uncertainty": 20.943066729170216,
             "experiment_id": "EXP201",
@@ -115,7 +119,9 @@
           },
           {
             "rank": 3,
-            "predicted_viability": 80.42734877941344,
+            "source_rank": 3,
+            "effective_rank": 3,
+            "predicted_viability": 80.42734877941345,
             "uncertainty": 20.69205375066923,
             "experiment_id": "EXP102",
             "experiment_date": "2/4/26",
@@ -123,7 +129,9 @@
             "signature": "1.73M ethylene_glycol + 7.3% hsa"
           },
           {
-            "rank": 4,
+            "rank": 5,
+            "source_rank": 4,
+            "effective_rank": 5,
             "predicted_viability": 69.80730418527094,
             "uncertainty": 22.37374710001786,
             "experiment_id": "EXP103",
@@ -132,7 +140,9 @@
             "signature": "4.7% hsa + 3.7% peg_3350"
           },
           {
-            "rank": 5,
+            "rank": 6,
+            "source_rank": 5,
+            "effective_rank": 6,
             "predicted_viability": 69.44474546198268,
             "uncertainty": 23.471215441394957,
             "experiment_id": "EXP304",
@@ -141,8 +151,10 @@
             "signature": "975.7mM ethylene_glycol + 8.5% hsa + 67.6mM proline"
           },
           {
-            "rank": 6,
-            "predicted_viability": 68.99002903917216,
+            "rank": 7,
+            "source_rank": 6,
+            "effective_rank": 7,
+            "predicted_viability": 68.99002903917217,
             "uncertainty": 20.655803760233223,
             "experiment_id": "EXP104",
             "experiment_date": "2/4/26",
@@ -150,8 +162,10 @@
             "signature": "1.86M glycerol + 1.9% hsa"
           },
           {
-            "rank": 7,
-            "predicted_viability": 68.96460157505916,
+            "rank": 8,
+            "source_rank": 7,
+            "effective_rank": 8,
+            "predicted_viability": 68.96460157505915,
             "uncertainty": 24.616706317748033,
             "experiment_id": "EXP305",
             "experiment_date": "2/27/26",
@@ -159,7 +173,9 @@
             "signature": "143.1mM ectoin + 1.28M ethylene_glycol"
           },
           {
-            "rank": 8,
+            "rank": 9,
+            "source_rank": 8,
+            "effective_rank": 9,
             "predicted_viability": 68.82673979322045,
             "uncertainty": 21.232198833412458,
             "experiment_id": "EXP105",
@@ -168,7 +184,9 @@
             "signature": "12.2mM dmso + 1.91M glycerol + 1.6% pvp"
           },
           {
-            "rank": 10,
+            "rank": 11,
+            "source_rank": 10,
+            "effective_rank": 11,
             "predicted_viability": 67.61227877476298,
             "uncertainty": 24.702543867222236,
             "experiment_id": "EXP306",
@@ -177,7 +195,9 @@
             "signature": "161.2mM ectoin + 1.05M ethylene_glycol"
           },
           {
-            "rank": 11,
+            "rank": 12,
+            "source_rank": 11,
+            "effective_rank": 12,
             "predicted_viability": 67.39419997875272,
             "uncertainty": 23.73934854144427,
             "experiment_id": "EXP205",
@@ -196,20 +216,20 @@
             "hit_rate_ge_70": 0.0
           },
           "top_5": {
-            "tested_count": 5,
-            "tested_fraction": 1.0,
-            "mean_actual_viability": 25.912,
-            "best_actual_viability": 53.19,
-            "hit_rate_ge_50": 0.2,
+            "tested_count": 4,
+            "tested_fraction": 0.8,
+            "mean_actual_viability": 19.0925,
+            "best_actual_viability": 38.14,
+            "hit_rate_ge_50": 0.0,
             "hit_rate_ge_70": 0.0
           },
           "top_10": {
-            "tested_count": 9,
-            "tested_fraction": 0.9,
-            "mean_actual_viability": 35.5867,
+            "tested_count": 8,
+            "tested_fraction": 0.8,
+            "mean_actual_viability": 31.3125,
             "best_actual_viability": 72.93,
-            "hit_rate_ge_50": 0.3333,
-            "hit_rate_ge_70": 0.1111
+            "hit_rate_ge_50": 0.25,
+            "hit_rate_ge_70": 0.125
           }
         }
       },
@@ -220,6 +240,8 @@
         "tested_examples": [
           {
             "rank": 1,
+            "source_rank": 1,
+            "effective_rank": 1,
             "predicted_viability": 72.39786439344682,
             "uncertainty": 23.595591064278935,
             "experiment_id": "EXP301",
@@ -229,6 +251,8 @@
           },
           {
             "rank": 3,
+            "source_rank": 3,
+            "effective_rank": 3,
             "predicted_viability": 71.53782108453225,
             "uncertainty": 22.17165479672872,
             "experiment_id": "EXP202",
@@ -238,6 +262,8 @@
           },
           {
             "rank": 4,
+            "source_rank": 4,
+            "effective_rank": 4,
             "predicted_viability": 70.8641536101629,
             "uncertainty": 22.777241958974304,
             "experiment_id": "EXP302",
@@ -247,8 +273,10 @@
           },
           {
             "rank": 5,
+            "source_rank": 5,
+            "effective_rank": 5,
             "predicted_viability": 69.47240592533045,
-            "uncertainty": 22.37679965014012,
+            "uncertainty": 22.376799650140118,
             "experiment_id": "EXP106",
             "experiment_date": "2/4/26",
             "actual_viability": 8.39,
@@ -256,7 +284,9 @@
           },
           {
             "rank": 6,
-            "predicted_viability": 69.18992495142724,
+            "source_rank": 6,
+            "effective_rank": 6,
+            "predicted_viability": 69.18992495142723,
             "uncertainty": 23.131364393740693,
             "experiment_id": "EXP203",
             "experiment_date": "2/11/26",
@@ -265,7 +295,9 @@
           },
           {
             "rank": 8,
-            "predicted_viability": 68.14881419445557,
+            "source_rank": 8,
+            "effective_rank": 8,
+            "predicted_viability": 68.14881419445558,
             "uncertainty": 24.029430958185326,
             "experiment_id": "EXP204",
             "experiment_date": "2/11/26",
@@ -274,8 +306,10 @@
           },
           {
             "rank": 11,
+            "source_rank": 11,
+            "effective_rank": 11,
             "predicted_viability": 66.84193451203575,
-            "uncertainty": 21.016308619101395,
+            "uncertainty": 21.016308619101398,
             "experiment_id": "EXP206",
             "experiment_date": "2/11/26",
             "actual_viability": 58.73,
@@ -283,6 +317,8 @@
           },
           {
             "rank": 12,
+            "source_rank": 12,
+            "effective_rank": 12,
             "predicted_viability": 66.58976352814975,
             "uncertainty": 24.4993529034262,
             "experiment_id": "EXP303",
@@ -417,8 +453,10 @@
         "tested_examples": [
           {
             "rank": 5,
-            "predicted_viability": 46.94643503310808,
-            "uncertainty": 23.18582831599794,
+            "source_rank": 5,
+            "effective_rank": 5,
+            "predicted_viability": 46.946435033108074,
+            "uncertainty": 23.185828315997938,
             "experiment_id": "EXP1101",
             "experiment_date": "3/3/26",
             "actual_viability": 15.27,
@@ -426,8 +464,10 @@
           },
           {
             "rank": 6,
-            "predicted_viability": 42.17710676374007,
-            "uncertainty": 20.659148443274816,
+            "source_rank": 6,
+            "effective_rank": 6,
+            "predicted_viability": 42.17710676374009,
+            "uncertainty": 20.65914844327482,
             "experiment_id": "EXP1102",
             "experiment_date": "3/3/26",
             "actual_viability": 6.9,
@@ -435,7 +475,9 @@
           },
           {
             "rank": 7,
-            "predicted_viability": 39.09516076859422,
+            "source_rank": 7,
+            "effective_rank": 7,
+            "predicted_viability": 39.09516076859421,
             "uncertainty": 25.140189547426896,
             "experiment_id": "EXP1103",
             "experiment_date": "3/3/26",
@@ -444,6 +486,8 @@
           },
           {
             "rank": 8,
+            "source_rank": 8,
+            "effective_rank": 8,
             "predicted_viability": 38.214356081193955,
             "uncertainty": 11.370966414679936,
             "experiment_id": "EXP1104",
@@ -453,6 +497,8 @@
           },
           {
             "rank": 15,
+            "source_rank": 15,
+            "effective_rank": 15,
             "predicted_viability": 36.57509382108581,
             "uncertainty": 25.502544391617864,
             "experiment_id": "EXP1105",
@@ -462,7 +508,9 @@
           },
           {
             "rank": 20,
-            "predicted_viability": 35.03442097295237,
+            "source_rank": 20,
+            "effective_rank": 20,
+            "predicted_viability": 35.034420972952354,
             "uncertainty": 25.53854575728142,
             "experiment_id": "EXP1202",
             "experiment_date": "3/5/26",
@@ -504,7 +552,9 @@
         "tested_examples": [
           {
             "rank": 5,
-            "predicted_viability": 48.764459148253664,
+            "source_rank": 5,
+            "effective_rank": 5,
+            "predicted_viability": 48.76445914825366,
             "uncertainty": 22.575703731105648,
             "experiment_id": "EXP1203",
             "experiment_date": "3/5/26",
@@ -513,6 +563,8 @@
           },
           {
             "rank": 10,
+            "source_rank": 10,
+            "effective_rank": 10,
             "predicted_viability": 38.7076413166712,
             "uncertainty": 23.98009743848618,
             "experiment_id": "EXP1205",
@@ -678,7 +730,9 @@
         "tested_examples": [
           {
             "rank": 13,
-            "predicted_viability": 33.73880974847606,
+            "source_rank": 13,
+            "effective_rank": 13,
+            "predicted_viability": 33.73880974847607,
             "uncertainty": 24.521463236987195,
             "experiment_id": "EXP2101",
             "experiment_date": "3/10/26",
@@ -687,6 +741,8 @@
           },
           {
             "rank": 14,
+            "source_rank": 14,
+            "effective_rank": 14,
             "predicted_viability": 33.695666630251424,
             "uncertainty": 24.714013890211497,
             "experiment_id": "EXP2102",
@@ -696,6 +752,8 @@
           },
           {
             "rank": 15,
+            "source_rank": 15,
+            "effective_rank": 15,
             "predicted_viability": 33.49525836477387,
             "uncertainty": 24.697509742803497,
             "experiment_id": "EXP2103",
@@ -705,6 +763,8 @@
           },
           {
             "rank": 16,
+            "source_rank": 16,
+            "effective_rank": 16,
             "predicted_viability": 33.44479580319595,
             "uncertainty": 24.658460951247665,
             "experiment_id": "EXP2104",
@@ -714,6 +774,8 @@
           },
           {
             "rank": 19,
+            "source_rank": 19,
+            "effective_rank": 19,
             "predicted_viability": 33.27669821028809,
             "uncertainty": 24.680351460929533,
             "experiment_id": "EXP2106",
@@ -779,8 +841,20 @@
       {
         "file": "bo_candidates_dmso_free_iteration_3_prior_mean.csv",
         "n_candidates": 20,
-        "n_tested_later": 0,
-        "tested_examples": [],
+        "n_tested_later": 1,
+        "tested_examples": [
+          {
+            "rank": 4,
+            "source_rank": 4,
+            "effective_rank": 4,
+            "predicted_viability": 75.03371208712036,
+            "uncertainty": 17.403783154659294,
+            "experiment_id": "EXP3101",
+            "experiment_date": "3/12/26",
+            "actual_viability": 63.61,
+            "signature": "273.3mM ectoin + 1.48M ethylene_glycol + 182.7mM glycerol"
+          }
+        ],
         "top_k": {
           "top_3": {
             "tested_count": 0,
@@ -791,20 +865,20 @@
             "hit_rate_ge_70": null
           },
           "top_5": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.2,
+            "mean_actual_viability": 63.61,
+            "best_actual_viability": 63.61,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           },
           "top_10": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.1,
+            "mean_actual_viability": 63.61,
+            "best_actual_viability": 63.61,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           }
         }
       },
@@ -847,6 +921,8 @@
         "tested_examples": [
           {
             "rank": 8,
+            "source_rank": 8,
+            "effective_rank": 8,
             "predicted_viability": 35.8226671507837,
             "uncertainty": 23.605837510401415,
             "experiment_id": "EXP3102",
@@ -856,6 +932,8 @@
           },
           {
             "rank": 14,
+            "source_rank": 14,
+            "effective_rank": 14,
             "predicted_viability": 33.64815708271081,
             "uncertainty": 22.99128380010228,
             "experiment_id": "EXP3103",
@@ -953,52 +1031,90 @@
       {
         "file": "bo_candidates_dmso_free_iteration_4_prior_mean.csv",
         "n_candidates": 20,
-        "n_tested_later": 0,
-        "tested_examples": [],
+        "n_tested_later": 2,
+        "tested_examples": [
+          {
+            "rank": 2,
+            "source_rank": 2,
+            "effective_rank": 2,
+            "predicted_viability": 77.69131307975272,
+            "uncertainty": 14.509005906061159,
+            "experiment_id": "EXP4101",
+            "experiment_date": "3/17/26",
+            "actual_viability": 62.32,
+            "signature": "11.0mM dmso + 309.9mM ectoin + 1.56M ethylene_glycol"
+          },
+          {
+            "rank": 7,
+            "source_rank": 7,
+            "effective_rank": 7,
+            "predicted_viability": 72.73521475162819,
+            "uncertainty": 14.169046900385998,
+            "experiment_id": "EXP4102",
+            "experiment_date": "3/17/26",
+            "actual_viability": 59.76,
+            "signature": "12.0mM dmso + 154.0mM ectoin + 1.23M ethylene_glycol"
+          }
+        ],
         "top_k": {
           "top_3": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.3333,
+            "mean_actual_viability": 62.32,
+            "best_actual_viability": 62.32,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           },
           "top_5": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 1,
+            "tested_fraction": 0.2,
+            "mean_actual_viability": 62.32,
+            "best_actual_viability": 62.32,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           },
           "top_10": {
-            "tested_count": 0,
-            "tested_fraction": 0.0,
-            "mean_actual_viability": null,
-            "best_actual_viability": null,
-            "hit_rate_ge_50": null,
-            "hit_rate_ge_70": null
+            "tested_count": 2,
+            "tested_fraction": 0.2,
+            "mean_actual_viability": 61.04,
+            "best_actual_viability": 62.32,
+            "hit_rate_ge_50": 1.0,
+            "hit_rate_ge_70": 0.0
           }
         }
       },
       {
         "file": "bo_candidates_general_iteration_4_prior_mean.csv",
         "n_candidates": 20,
-        "n_tested_later": 3,
+        "n_tested_later": 4,
         "tested_examples": [
           {
             "rank": 4,
-            "predicted_viability": 72.60817754797671,
-            "uncertainty": 16.93497219707795,
+            "source_rank": 4,
+            "effective_rank": 4,
+            "predicted_viability": 72.60817754797672,
+            "uncertainty": 16.934972197077947,
             "experiment_id": "EXP4103",
             "experiment_date": "3/17/26",
             "actual_viability": 73.15,
             "signature": "304.7mM ectoin + 1.55M ethylene_glycol + 6.5% fbs"
           },
           {
+            "rank": 7,
+            "source_rank": 7,
+            "effective_rank": 7,
+            "predicted_viability": 71.67802785095046,
+            "uncertainty": 17.34139299652142,
+            "experiment_id": "EXP4104",
+            "experiment_date": "3/17/26",
+            "actual_viability": 76.91,
+            "signature": "304.7mM ectoin + 1.55M ethylene_glycol + 5.1% fbs + 0.6% hsa"
+          },
+          {
             "rank": 8,
-            "predicted_viability": 69.77248629605229,
+            "source_rank": 8,
+            "effective_rank": 8,
+            "predicted_viability": 69.7724862960523,
             "uncertainty": 18.321452712505348,
             "experiment_id": "EXP4105",
             "experiment_date": "3/17/26",
@@ -1007,6 +1123,8 @@
           },
           {
             "rank": 9,
+            "source_rank": 9,
+            "effective_rank": 9,
             "predicted_viability": 69.57138014941285,
             "uncertainty": 15.771360304454776,
             "experiment_id": "EXP4106",
@@ -1033,9 +1151,9 @@
             "hit_rate_ge_70": 1.0
           },
           "top_10": {
-            "tested_count": 3,
-            "tested_fraction": 0.3,
-            "mean_actual_viability": 74.35,
+            "tested_count": 4,
+            "tested_fraction": 0.4,
+            "mean_actual_viability": 74.99,
             "best_actual_viability": 78.31,
             "hit_rate_ge_50": 1.0,
             "hit_rate_ge_70": 1.0
