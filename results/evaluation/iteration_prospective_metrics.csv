@@ -1,7 +1,7 @@
-stage,label,iteration_dir,timestamp,model_method,batch_dates,batch_rows,batch_rmse,batch_spearman,batch_hit_rate_ge_50
-0,literature_only,literature_only,2026-01-30T12:33:19.875878,literature_only,"2026-02-04,2026-02-11,2026-02-27",18,41.2128,-0.3271,0.4444
-1,iteration_1,iteration_1_prior_mean,2026-03-02T13:15:01.092406,prior_mean_correction,"2026-03-03,2026-03-05",11,21.6681,-0.5182,0.9091
-2,iteration_2,iteration_2_prior_mean,2026-03-09T23:49:45.912284,prior_mean_correction,2026-03-10,6,14.7438,0.0857,0.6667
-3,iteration_3,iteration_3_prior_mean,2026-03-11T13:39:36.472392,prior_mean_correction,2026-03-12,8,21.0461,0.4762,0.625
-4,iteration_4,iteration_4_prior_mean,2026-03-16T19:05:04.690495,prior_mean_correction,2026-03-17,6,9.2409,-0.6,1.0
-5,iteration_5,iteration_5_prior_mean,2026-03-18T14:03:08.919319,prior_mean_correction,,0,,,
+stage,label,iteration_dir,timestamp,model_method,batch_dates,batch_rows,batch_rmse,batch_spearman,batch_hit_rate_ge_50,next_formulations_tested,exploit_mean_actual_viability,exploit_hit_rate_ge_50,explore_mean_signed_residual,explore_coverage_1sigma,explore_fraction_residual_ge_5
+0,literature_only,literature_only,2026-01-30T12:33:19.875878,literature_only,"2026-02-04,2026-02-11,2026-02-27",18,41.2128,-0.3271,0.4444,,,,,,
+1,iteration_1,iteration_1_prior_mean,2026-03-02T13:15:01.092406,prior_mean_correction,"2026-03-03,2026-03-05",11,21.6681,-0.5182,0.9091,,,,,,
+2,iteration_2,iteration_2_prior_mean,2026-03-09T23:49:45.912284,prior_mean_correction,2026-03-10,6,14.7438,0.0857,0.6667,,,,,,
+3,iteration_3,iteration_3_prior_mean,2026-03-11T13:39:36.472392,prior_mean_correction,2026-03-12,8,21.0461,0.4762,0.625,,,,,,
+4,iteration_4,iteration_4_prior_mean,2026-03-16T19:05:04.690495,prior_mean_correction,2026-03-17,6,9.2409,-0.6,1.0,,,,,,
+5,iteration_5,iteration_5_prior_mean,2026-03-18T14:03:08.919319,prior_mean_correction,,0,,,,0.0,,,,,

@@ -41,6 +41,7 @@ RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 VALIDATION_PATH = os.path.join(PROJECT_ROOT, "data", "validation", "validation_results.csv")
 OUTPUT_DIR = os.path.join(RESULTS_DIR, "evaluation")
 PLOT_PATH = os.path.join(OUTPUT_DIR, "stage_performance.png")
+NEXT_FORMULATIONS_PLOT_PATH = os.path.join(OUTPUT_DIR, "next_formulations_performance.png")
 HELPER_DIR = os.path.join(PROJECT_ROOT, "src", "helper")
 VALIDATION_LOOP_DIR = os.path.join(PROJECT_ROOT, "src", "04_validation_loop")
 
@@ -300,6 +301,14 @@ def candidate_files_for_stage(stage: int) -> List[str]:
     return candidates
 
 
+def next_formulations_file_for_stage(iteration_dir: Optional[str]) -> Optional[str]:
+    """Return the `07` output file for one resolved iteration, when present."""
+    if not iteration_dir:
+        return None
+    path = os.path.join(RESULTS_DIR, "next_formulations", iteration_dir, "next_formulations.csv")
+    return path if os.path.exists(path) else None
+
+
 def build_signature_lookup(validation_df: pd.DataFrame, feature_names: Sequence[str]) -> Dict[str, List[dict]]:
     """Map formulation signatures to later wet-lab outcomes."""
     lookup: Dict[str, List[dict]] = {}
@@ -322,6 +331,42 @@ def align_candidate_df(candidate_df: pd.DataFrame, feature_names: Sequence[str])
             aligned[feature_name] = 0.0
         aligned[feature_name] = pd.to_numeric(aligned[feature_name], errors="coerce").fillna(0.0)
     return normalize_formulation_dataframe(aligned, feature_names)
+
+
+def align_next_formulations_df(output_df: pd.DataFrame, feature_names: Sequence[str]) -> pd.DataFrame:
+    """Normalize `07` output rows while preserving policy metadata columns."""
+    aligned = align_candidate_df(output_df, feature_names).copy()
+    default_string_columns = [
+        "recommendation_type",
+        "origin",
+        "source_file",
+        "anchor_experiments",
+        "formulation",
+        "rationale",
+    ]
+    for column in default_string_columns:
+        if column not in aligned.columns:
+            aligned[column] = ""
+        aligned[column] = aligned[column].fillna("").astype(str)
+
+    numeric_defaults = {
+        "bucket_rank": 0,
+        "source_rank": 0,
+        "anchor_stage": np.nan,
+        "blindspot_score": 0.0,
+        "novelty_score": 0.0,
+        "dmso_percent": 0.0,
+        "n_ingredients": 0,
+    }
+    for column, default in numeric_defaults.items():
+        if column not in aligned.columns:
+            aligned[column] = default
+        aligned[column] = pd.to_numeric(aligned[column], errors="coerce")
+
+    aligned["bucket_rank"] = aligned["bucket_rank"].fillna(0).astype(int)
+    aligned["source_rank"] = aligned["source_rank"].fillna(0).astype(int)
+    aligned["n_ingredients"] = aligned["n_ingredients"].fillna(0).astype(int)
+    return aligned
 
 
 def rescore_candidate_df(
@@ -350,6 +395,25 @@ def rescore_candidate_df(
         kind="mergesort",
     ).reset_index(drop=True)
     rescored["effective_rank"] = np.arange(1, len(rescored) + 1)
+    return rescored
+
+
+def rescore_next_formulations_df(
+    output_df: pd.DataFrame,
+    feature_names: Sequence[str],
+    model,
+    scaler,
+    is_composite_model: bool,
+) -> pd.DataFrame:
+    """Rescore `07` output rows with the frozen stage model."""
+    rescored = align_next_formulations_df(output_df, feature_names).copy()
+    X = rescored.reindex(columns=feature_names, fill_value=0.0).fillna(0.0).to_numpy(float)
+    pred_mean, pred_std = predict(model, scaler, X, is_composite_model)
+    rescored["predicted_viability"] = pred_mean
+    rescored["uncertainty"] = pred_std
+    rescored["formulation"] = [
+        format_formulation(row, feature_names) for _, row in rescored.iterrows()
+    ]
     return rescored
 
 
@@ -420,6 +484,159 @@ def summarize_candidate_hits(
     return summary
 
 
+def empty_next_formulations_bucket(n_rows_in_output: int) -> Dict[str, Optional[float]]:
+    """Return an empty summary bucket for one `07` recommendation slice."""
+    return {
+        "n_rows_in_output": int(n_rows_in_output),
+        "n_tested_later": 0,
+        "tested_fraction": round_or_none(0.0) if n_rows_in_output else None,
+        "mean_predicted_viability": None,
+        "mean_uncertainty": None,
+        "mean_actual_viability": None,
+        "best_actual_viability": None,
+        "hit_rate_ge_50": None,
+        "hit_rate_ge_70": None,
+        "mean_signed_residual": None,
+        "mean_abs_residual": None,
+        "rmse": None,
+        "coverage_1sigma": None,
+        "coverage_2sigma": None,
+        "fraction_actual_gt_predicted": None,
+        "fraction_residual_ge_5": None,
+        "fraction_residual_ge_10": None,
+    }
+
+
+def summarize_next_formulations_bucket(
+    matched_df: pd.DataFrame,
+    n_rows_in_output: int,
+) -> Dict[str, Optional[float]]:
+    """Summarize one policy bucket from matched `07` rows."""
+    if matched_df.empty:
+        return empty_next_formulations_bucket(n_rows_in_output)
+
+    y = matched_df["actual_viability"].to_numpy(float)
+    pred = matched_df["predicted_viability"].to_numpy(float)
+    std = matched_df["uncertainty"].to_numpy(float)
+    residual = matched_df["residual"].to_numpy(float)
+    tested_fraction = matched_df["output_row_id"].nunique() / n_rows_in_output if n_rows_in_output else None
+
+    return {
+        "n_rows_in_output": int(n_rows_in_output),
+        "n_tested_later": int(len(matched_df)),
+        "tested_fraction": round_or_none(tested_fraction),
+        "mean_predicted_viability": round_or_none(np.mean(pred)),
+        "mean_uncertainty": round_or_none(np.mean(std)),
+        "mean_actual_viability": round_or_none(np.mean(y)),
+        "best_actual_viability": round_or_none(np.max(y)),
+        "hit_rate_ge_50": round_or_none(np.mean(y >= 50.0)),
+        "hit_rate_ge_70": round_or_none(np.mean(y >= 70.0)),
+        "mean_signed_residual": round_or_none(np.mean(residual)),
+        "mean_abs_residual": round_or_none(np.mean(np.abs(residual))),
+        "rmse": round_or_none(np.sqrt(np.mean(residual ** 2))),
+        "coverage_1sigma": round_or_none(np.mean(np.abs(residual) <= std)),
+        "coverage_2sigma": round_or_none(np.mean(np.abs(residual) <= 2 * std)),
+        "fraction_actual_gt_predicted": round_or_none(np.mean(residual > 0.0)),
+        "fraction_residual_ge_5": round_or_none(np.mean(residual >= 5.0)),
+        "fraction_residual_ge_10": round_or_none(np.mean(residual >= 10.0)),
+    }
+
+
+def summarize_next_formulations_hits(
+    output_path: str,
+    future_validation_df: pd.DataFrame,
+    feature_names: Sequence[str],
+    model,
+    scaler,
+    is_composite_model: bool,
+) -> Dict[str, object]:
+    """Evaluate one `07` output slate against later wet-lab matches."""
+    output_df = pd.read_csv(output_path)
+    output_df = rescore_next_formulations_df(
+        output_df,
+        feature_names,
+        model,
+        scaler,
+        is_composite_model,
+    ).fillna(0.0)
+    output_df["output_row_id"] = np.arange(len(output_df))
+    lookup = build_signature_lookup(future_validation_df, feature_names)
+
+    matched_rows: List[dict] = []
+    for _, row in output_df.iterrows():
+        signature = str(row["formulation"])
+        tested_matches = lookup.get(signature, [])
+        if not tested_matches:
+            continue
+        for match in tested_matches:
+            actual_viability = float(match["viability_measured"])
+            predicted_viability = float(row["predicted_viability"])
+            matched_rows.append(
+                {
+                    "output_row_id": int(row["output_row_id"]),
+                    "recommendation_type": str(row.get("recommendation_type", "")),
+                    "origin": str(row.get("origin", "")),
+                    "bucket_rank": int(row.get("bucket_rank", 0)),
+                    "predicted_viability": predicted_viability,
+                    "uncertainty": float(row["uncertainty"]),
+                    "actual_viability": actual_viability,
+                    "residual": actual_viability - predicted_viability,
+                    "experiment_id": match["experiment_id"],
+                    "experiment_date": match["experiment_date"],
+                    "formulation": signature,
+                }
+            )
+
+    matched_df = pd.DataFrame(matched_rows)
+    by_type: Dict[str, Dict[str, Optional[float]]] = {}
+    for recommendation_type in ("exploit", "explore"):
+        output_subset = output_df[output_df["recommendation_type"] == recommendation_type]
+        matched_subset = matched_df[matched_df["recommendation_type"] == recommendation_type] if not matched_df.empty else matched_df
+        by_type[recommendation_type] = summarize_next_formulations_bucket(
+            matched_subset,
+            len(output_subset),
+        )
+
+    by_origin: Dict[str, Dict[str, Optional[float]]] = {}
+    for origin in ("bo_candidate", "generated_probe", "explore_fallback"):
+        output_subset = output_df[output_df["origin"] == origin]
+        matched_subset = matched_df[matched_df["origin"] == origin] if not matched_df.empty else matched_df
+        by_origin[origin] = summarize_next_formulations_bucket(
+            matched_subset,
+            len(output_subset),
+        )
+
+    summary: Dict[str, object] = {
+        "file": os.path.basename(output_path),
+        "n_rows_in_output": int(len(output_df)),
+        "n_tested_later": int(len(matched_df)),
+        "tested_examples": [],
+        "overall": summarize_next_formulations_bucket(matched_df, len(output_df)),
+        "by_recommendation_type": by_type,
+        "by_origin": by_origin,
+    }
+
+    if not matched_df.empty:
+        preview = matched_df.sort_values(
+            ["recommendation_type", "bucket_rank", "experiment_date", "experiment_id"]
+        )[
+            [
+                "recommendation_type",
+                "origin",
+                "bucket_rank",
+                "predicted_viability",
+                "actual_viability",
+                "residual",
+                "experiment_id",
+                "experiment_date",
+                "formulation",
+            ]
+        ].head(10)
+        summary["tested_examples"] = preview.to_dict(orient="records")
+
+    return summary
+
+
 def validation_batch_for_stage(validation_df: pd.DataFrame, stage: int) -> pd.DataFrame:
     """Return validation rows belonging to one experimental stage."""
     stage_series = validation_df["experiment_id"].map(stage_from_experiment_id)
@@ -430,6 +647,7 @@ def evaluate_stage(stage_record: StageRecord, validation_df: pd.DataFrame) -> Di
     """Evaluate one modeling stage against its corresponding validation batch."""
     model, scaler = load_model(stage_record)
     batch_df = validation_batch_for_stage(validation_df, stage_record.stage)
+    next_formulations_path = next_formulations_file_for_stage(stage_record.iteration_dir)
     candidate_summaries = [
         summarize_candidate_hits(
             path,
@@ -441,6 +659,18 @@ def evaluate_stage(stage_record: StageRecord, validation_df: pd.DataFrame) -> Di
         )
         for path in candidate_files_for_stage(stage_record.stage)
     ]
+    next_formulations_evaluation = (
+        summarize_next_formulations_hits(
+            next_formulations_path,
+            batch_df,
+            stage_record.feature_names,
+            model,
+            scaler,
+            stage_record.is_composite_model,
+        )
+        if next_formulations_path
+        else None
+    )
 
     return {
         "stage": stage_record.stage,
@@ -459,6 +689,7 @@ def evaluate_stage(stage_record: StageRecord, validation_df: pd.DataFrame) -> Di
             stage_record.is_composite_model,
         ),
         "candidate_evaluation": candidate_summaries,
+        "next_formulations_evaluation": next_formulations_evaluation,
     }
 
 
@@ -503,6 +734,32 @@ def print_summary(results: Sequence[Dict[str, object]]):
         else:
             print("  Candidate rank cross-reference: no candidate CSVs found")
 
+        next_eval = result.get("next_formulations_evaluation")
+        if next_eval:
+            overall = next_eval["overall"]
+            exploit = next_eval["by_recommendation_type"]["exploit"]
+            explore = next_eval["by_recommendation_type"]["explore"]
+            print(
+                "  Next formulations evaluation:"
+                f" tested={next_eval['n_tested_later']}/{next_eval['n_rows_in_output']},"
+                f" overall_mean_actual={overall['mean_actual_viability']},"
+                f" overall_hit@50={overall['hit_rate_ge_50']}"
+            )
+            print(
+                "    Exploit:"
+                f" mean_actual={exploit['mean_actual_viability']},"
+                f" hit@50={exploit['hit_rate_ge_50']},"
+                f" best_actual={exploit['best_actual_viability']}"
+            )
+            print(
+                "    Explore:"
+                f" mean_residual={explore['mean_signed_residual']},"
+                f" coverage@1sigma={explore['coverage_1sigma']},"
+                f" residual>=5={explore['fraction_residual_ge_5']}"
+            )
+        else:
+            print("  Next formulations evaluation: no `07` output file found")
+
         print("")
 
 
@@ -517,6 +774,10 @@ def write_outputs(results: Sequence[Dict[str, object]]):
     rows: List[dict] = []
     for result in results:
         batch_metrics = result["batch_metrics"]
+        next_eval = result.get("next_formulations_evaluation") or {}
+        next_by_type = next_eval.get("by_recommendation_type", {})
+        exploit = next_by_type.get("exploit", {})
+        explore = next_by_type.get("explore", {})
         rows.append(
             {
                 "stage": result["stage"],
@@ -529,6 +790,12 @@ def write_outputs(results: Sequence[Dict[str, object]]):
                 "batch_rmse": batch_metrics["rmse"],
                 "batch_spearman": batch_metrics["spearman_rho"],
                 "batch_hit_rate_ge_50": batch_metrics["hit_rate_ge_50"],
+                "next_formulations_tested": next_eval.get("n_tested_later"),
+                "exploit_mean_actual_viability": exploit.get("mean_actual_viability"),
+                "exploit_hit_rate_ge_50": exploit.get("hit_rate_ge_50"),
+                "explore_mean_signed_residual": explore.get("mean_signed_residual"),
+                "explore_coverage_1sigma": explore.get("coverage_1sigma"),
+                "explore_fraction_residual_ge_5": explore.get("fraction_residual_ge_5"),
             }
         )
 
@@ -593,6 +860,120 @@ def write_performance_plot(results: Sequence[Dict[str, object]]):
     plt.close(fig)
 
 
+def write_next_formulations_plot(results: Sequence[Dict[str, object]]):
+    """Save a dedicated side-by-side plot for `07` exploit vs explore performance."""
+    plot_rows: List[Dict[str, object]] = []
+    for result in results:
+        next_eval = result.get("next_formulations_evaluation")
+        if not next_eval:
+            continue
+        by_type = next_eval.get("by_recommendation_type", {})
+        exploit = by_type.get("exploit", {})
+        explore = by_type.get("explore", {})
+        if exploit.get("n_tested_later", 0) <= 0 and explore.get("n_tested_later", 0) <= 0:
+            continue
+        plot_rows.append(
+            {
+                "label": result["label"].replace("_", "\n"),
+                "exploit": exploit,
+                "explore": explore,
+            }
+        )
+
+    plt.style.use("seaborn-v0_8-whitegrid")
+    if not plot_rows:
+        fig, ax = plt.subplots(figsize=(10, 4.8))
+        ax.axis("off")
+        ax.text(
+            0.5,
+            0.5,
+            "No matched `07` recommendation rows are available for evaluation yet.",
+            ha="center",
+            va="center",
+            fontsize=13,
+        )
+        fig.suptitle("CryoMN `07` Recommendation Policy Evaluation", fontsize=14, y=0.95)
+        fig.tight_layout()
+        fig.savefig(NEXT_FORMULATIONS_PLOT_PATH, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        return
+
+    fig, axes = plt.subplots(2, 2, figsize=(13.5, 8.5))
+    axes = axes.flatten()
+    colors = {"exploit": "#1f6aa5", "explore": "#d66a1f"}
+    labels = [row["label"] for row in plot_rows]
+    x = np.arange(len(labels))
+    width = 0.34
+
+    metric_specs = [
+        ("Mean Actual Viability", "mean_actual_viability", None),
+        ("Hit Rate @ 50%", "hit_rate_ge_50", (0.0, 1.05)),
+        ("Mean Signed Residual (actual - predicted)", "mean_signed_residual", None),
+        ("Coverage @ 1σ", "coverage_1sigma", (0.0, 1.05)),
+    ]
+
+    for ax, (title, key, fixed_ylim) in zip(axes, metric_specs):
+        exploit_values = np.array(
+            [np.nan if row["exploit"].get("n_tested_later", 0) <= 0 else row["exploit"].get(key) for row in plot_rows],
+            dtype=float,
+        )
+        explore_values = np.array(
+            [np.nan if row["explore"].get("n_tested_later", 0) <= 0 else row["explore"].get(key) for row in plot_rows],
+            dtype=float,
+        )
+
+        exploit_bars = ax.bar(x - width / 2, exploit_values, width=width, color=colors["exploit"], label="Exploit")
+        explore_bars = ax.bar(x + width / 2, explore_values, width=width, color=colors["explore"], label="Explore")
+        ax.set_title(title, fontsize=11)
+        ax.set_xticks(x, labels)
+
+        if "Residual" in title:
+            ax.axhline(0.0, color="#444444", linewidth=1, linestyle="--", alpha=0.8)
+
+        finite_values = np.concatenate(
+            [
+                exploit_values[np.isfinite(exploit_values)],
+                explore_values[np.isfinite(explore_values)],
+            ]
+        )
+        if fixed_ylim is not None:
+            ax.set_ylim(*fixed_ylim)
+        elif finite_values.size:
+            minimum = float(np.min(finite_values))
+            maximum = float(np.max(finite_values))
+            if minimum >= 0:
+                ax.set_ylim(0.0, maximum * 1.2 if maximum > 0 else 1.0)
+            else:
+                padding = max((maximum - minimum) * 0.15, 0.5)
+                ax.set_ylim(minimum - padding, maximum + padding)
+
+        for bars in (exploit_bars, explore_bars):
+            for bar in bars:
+                value = bar.get_height()
+                if not math.isfinite(value):
+                    continue
+                if value >= 0:
+                    y = value + (0.02 if key != "mean_actual_viability" else max(value * 0.03, 0.8))
+                    va = "bottom"
+                else:
+                    y = value - 0.08
+                    va = "top"
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    y,
+                    f"{value:.2f}",
+                    ha="center",
+                    va=va,
+                    fontsize=8.5,
+                )
+
+    axes[0].legend(frameon=False, loc="upper left")
+    fig.suptitle("CryoMN `07` Recommendation Policy Evaluation", fontsize=14, y=0.98)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(NEXT_FORMULATIONS_PLOT_PATH, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     """Run stage-based evaluation."""
     validation_df = load_validation_df()
@@ -604,6 +985,7 @@ def main():
     print_summary(results)
     write_outputs(results)
     write_performance_plot(results)
+    write_next_formulations_plot(results)
 
 
 if __name__ == "__main__":
