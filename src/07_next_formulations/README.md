@@ -116,6 +116,17 @@ same 20-row slate:
 This makes the score useful for comparing subsets generated in the same run,
 but not as an absolute quantity across different stages or different slates.
 
+The printed row `utility` is the heuristic row-level value that feeds into the
+subset score. It is role-dependent:
+
+- `exploit` rows emphasize predicted viability, confidence, and novelty
+- `local_rank_probe` rows balance predicted viability, uncertainty, blind-spot value, and novelty
+- `blindspot_probe` rows emphasize uncertainty and blind-spot value
+- `explore_fallback` rows follow the exploration weighting but carry a small penalty
+
+So `utility` is a single-row selection value, while `score` is the full
+subset-level selection value.
+
 Displayed formulation identity follows the same floor as BO generation and `06`
 matching:
 

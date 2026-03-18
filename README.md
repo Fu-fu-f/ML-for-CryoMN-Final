@@ -152,6 +152,12 @@ predicted viability or expected improvement directly. Higher scores reflect a
 better tradeoff among row utility, chemistry-family diversity, local-anchor
 diversity, and closeness to the intended exploit / local-rank / blind-spot mix.
 
+The per-row `utility` values shown in the text summary are the row-level inputs
+to that subset score. They are also heuristic. A row's utility depends on its
+role: exploitation rows emphasize predicted viability and confidence, while
+exploration rows place more weight on uncertainty, blind-spot value, and
+novelty.
+
 ### Stage-Based Evaluation
 
 The repository includes a stage-based evaluator that scores each frozen
