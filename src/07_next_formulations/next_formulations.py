@@ -1699,8 +1699,21 @@ def build_summary_text(
             f" blindspot={recommendation['selected_counts']['blindspot']},"
             f" mean_pred={recommendation['mean_predicted_viability']}"
         )
-
-    lines.append("")
+        for row in recommendation.get("rows", []):
+            lines.extend(
+                [
+                    (
+                        f"  {row['selection_order']}. {row['formulation']}"
+                        f" [{row['recommendation_type']}/{row['origin']}]"
+                    ),
+                    (
+                        f"     predicted viability: {float(row['predicted_viability']):.2f}%"
+                        f" +/- {float(row['uncertainty']):.2f}%"
+                    ),
+                    f"     utility: {float(row['batch_utility']):.4f}",
+                ]
+            )
+        lines.append("")
     return "\n".join(lines)
 
 

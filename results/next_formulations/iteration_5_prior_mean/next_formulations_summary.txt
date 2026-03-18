@@ -105,9 +105,204 @@ Exploration / calibration picks:
 
 Recommended smaller batch subsets:
 - batch size 6: score=4.8516, exploit=2, local_rank=2, blindspot=2, mean_pred=61.9583
+  1. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  2. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  3. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  4. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  5. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+  6. 528.0mM dmso + 100.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.39% +/- 19.41%
+     utility: 0.6568
+
 - batch size 7: score=5.6276, exploit=3, local_rank=3, blindspot=1, mean_pred=67.3708
+  1. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  2. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  3. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  4. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  5. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  6. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  7. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+
 - batch size 8: score=6.3844, exploit=3, local_rank=3, blindspot=2, mean_pred=64.3728
+  1. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  2. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  3. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  4. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  5. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  6. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  7. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+  8. 528.0mM dmso + 100.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.39% +/- 19.41%
+     utility: 0.6568
+
 - batch size 9: score=7.0226, exploit=4, local_rank=4, blindspot=1, mean_pred=68.9482
+  1. 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs [exploit/bo_candidate]
+     predicted viability: 74.74% +/- 16.51%
+     utility: 0.8802
+  2. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  3. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  4. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  5. 11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs [explore/local_rank_probe]
+     predicted viability: 74.20% +/- 15.83%
+     utility: 0.5148
+  6. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  7. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  8. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  9. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+
 - batch size 10: score=7.7794, exploit=4, local_rank=4, blindspot=2, mean_pred=66.3921
+  1. 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs [exploit/bo_candidate]
+     predicted viability: 74.74% +/- 16.51%
+     utility: 0.8802
+  2. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  3. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  4. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  5. 11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs [explore/local_rank_probe]
+     predicted viability: 74.20% +/- 15.83%
+     utility: 0.5148
+  6. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  7. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  8. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  9. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+  10. 528.0mM dmso + 100.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.39% +/- 19.41%
+     utility: 0.6568
+
 - batch size 11: score=8.4219, exploit=4, local_rank=4, blindspot=3, mean_pred=64.1935
+  1. 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs [exploit/bo_candidate]
+     predicted viability: 74.74% +/- 16.51%
+     utility: 0.8802
+  2. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  3. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  4. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  5. 11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs [explore/local_rank_probe]
+     predicted viability: 74.20% +/- 15.83%
+     utility: 0.5148
+  6. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  7. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  8. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  9. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+  10. 528.0mM dmso + 100.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.39% +/- 19.41%
+     utility: 0.6568
+  11. 528.0mM dmso + 75.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 42.21% +/- 19.22%
+     utility: 0.6425
+
 - batch size 12: score=9.1583, exploit=5, local_rank=5, blindspot=2, mean_pred=67.6514
+  1. 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs [exploit/bo_candidate]
+     predicted viability: 74.74% +/- 16.51%
+     utility: 0.8802
+  2. 21.0mM dmso + 291.1mM ectoin + 1.79M ethylene_glycol + 5.4% fbs [exploit/bo_candidate]
+     predicted viability: 74.16% +/- 16.46%
+     utility: 0.8719
+  3. 704.0mM dmso [exploit/bo_candidate]
+     predicted viability: 71.91% +/- 15.96%
+     utility: 0.8477
+  4. 704.0mM dmso + 2.0% fbs [exploit/bo_candidate]
+     predicted viability: 71.43% +/- 15.99%
+     utility: 0.8391
+  5. 243.6mM ectoin + 1.71M ethylene_glycol [exploit/bo_candidate]
+     predicted viability: 70.98% +/- 17.64%
+     utility: 0.7891
+  6. 11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs [explore/local_rank_probe]
+     predicted viability: 74.20% +/- 15.83%
+     utility: 0.5148
+  7. 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs [explore/local_rank_probe]
+     predicted viability: 72.12% +/- 17.76%
+     utility: 0.5700
+  8. 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs [explore/local_rank_probe]
+     predicted viability: 72.25% +/- 17.56%
+     utility: 0.5637
+  9. 7.9mM dmso + 317.1mM ectoin + 1.73M ethylene_glycol + 2.3% fbs [explore/local_rank_probe]
+     predicted viability: 73.74% +/- 15.74%
+     utility: 0.5070
+  10. 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs [explore/local_rank_probe]
+     predicted viability: 69.41% +/- 18.28%
+     utility: 0.5645
+  11. 1.84M propylene_glycol + 299.3mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.50% +/- 23.47%
+     utility: 0.7135
+  12. 528.0mM dmso + 100.0mM sucrose [explore/blindspot_probe]
+     predicted viability: 43.39% +/- 19.41%
+     utility: 0.6568
