@@ -98,6 +98,24 @@ score that balances:
 - chemistry-family diversity
 - the intended exploit / local-rank / blind-spot mix
 
+`next_formulations_summary.txt` also includes a text version of each
+recommended subset. For every batch size, the summary lists the selected rows,
+their recommendation type and origin, predicted viability, uncertainty, and
+per-row utility.
+
+The printed recommendation `score` is a heuristic subset-selection score. It
+does not mean predicted viability, expected improvement, or probability of
+success. It is the objective used to choose one subset over another within the
+same 20-row slate:
+
+- start with the sum of per-row `batch_utility`
+- add bonuses for chemistry-family diversity and distinct local-rank anchors
+- subtract penalties when the subset drifts away from the target exploit /
+  local-rank / blind-spot counts
+
+This makes the score useful for comparing subsets generated in the same run,
+but not as an absolute quantity across different stages or different slates.
+
 Displayed formulation identity follows the same floor as BO generation and `06`
 matching:
 

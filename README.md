@@ -142,7 +142,15 @@ Outputs are written under `results/next_formulations/<iteration_tag>/`, for exam
 The summary and metadata artifacts record which positive-residual thresholds
 were tried, which threshold was selected, how many exploration rows came
 from local-rank probes, blind-spot probes, and BO fallback, and which
-historical anchor stages fed the generated probes.
+historical anchor stages fed the generated probes. The text summary also
+includes a human-readable version of each recommended batch subset for wet-lab
+capacities from 6 through 12 formulations.
+
+The batch recommendation `score` is a heuristic subset-selection score. It is
+used to rank candidate subsets built from the 20-row slate, not to represent
+predicted viability or expected improvement directly. Higher scores reflect a
+better tradeoff among row utility, chemistry-family diversity, local-anchor
+diversity, and closeness to the intended exploit / local-rank / blind-spot mix.
 
 ### Stage-Based Evaluation
 
