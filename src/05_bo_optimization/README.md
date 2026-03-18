@@ -34,12 +34,21 @@ This script uses the same active-model resolver as `03_optimization`:
 - `results/bo_candidates_dmso_free_<iteration_tag>.csv` - Low-DMSO candidates (`<0.5%` DMSO)
 - `*_summary.txt` - Human-readable summaries saved alongside the CSVs
 
+Before candidates are scored and exported, `05` applies a practical
+concentration floor to every feature:
+
+- `_pct` values `<0.1%` are zeroed
+- `_M` values `<0.001 M` (`<1.0 mM`) are zeroed
+
+This keeps trace ingredients from surviving into candidate identity, ingredient
+counts, and rendered formulation text.
+
 These BO outputs are also the exploitation input to
 `src/07_next_formulations/next_formulations.py`, which builds the final
-10-formulation wet-lab batch by combining:
+20-formulation wet-lab batch by combining:
 
-- 5 exploitation picks from these `05` BO candidate files
-- 5 exploration/calibration probes generated from the latest completed stage's residual blind spots
+- 10 exploitation picks from these `05` BO candidate files
+- 10 exploration/calibration probes generated from residual blind spots
 
 `<iteration_tag>` comes from the resolved active model identity, for example:
 - `iteration_1`
@@ -59,6 +68,7 @@ These BO outputs are also the exploitation input to
    - Run Differential Evolution to find `x* = argmax(UCB(x) - penalty(x))`
    - DE starts from warm starts around top observed formulations instead of a blind search only
    - Each DE generation is scored as a batch, so model inference and penalty evaluation are applied to the full population together
+   - the practical concentration floor is applied before sparsification and prediction
    - **Batch diversity**: Gaussian penalty repels DE away from previously found candidates
    - Constraint violations (DMSO, ingredient count, distance from observed support) are penalized
    - Exact duplicates are skipped
@@ -137,4 +147,4 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 
 - **`03_optimization`**: Quick candidate generation, initial exploration, when speed matters
 - **`05_bo_optimization`**: Serious optimization, when you want to preserve the best validated recipes and explore high-value local variants around them
-- **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 5 exploit / 5 explore split and full input/output validation
+- **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 10 exploit / 10 explore split and full input/output validation

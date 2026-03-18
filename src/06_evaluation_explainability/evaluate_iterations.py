@@ -54,7 +54,10 @@ if HELPER_DIR not in sys.path:
 if VALIDATION_LOOP_DIR not in sys.path:
     sys.path.insert(0, VALIDATION_LOOP_DIR)
 
-from formulation_formatting import format_formulation  # noqa: E402
+from formulation_formatting import (  # noqa: E402
+    format_formulation,
+    normalize_formulation_dataframe,
+)
 from update_model_weighted_prior import CompositeGP  # noqa: F401,E402
 
 
@@ -317,7 +320,7 @@ def align_candidate_df(candidate_df: pd.DataFrame, feature_names: Sequence[str])
     for feature_name in feature_names:
         if feature_name not in aligned.columns:
             aligned[feature_name] = 0.0
-    return aligned
+    return normalize_formulation_dataframe(aligned, feature_names)
 
 
 def summarize_candidate_hits(

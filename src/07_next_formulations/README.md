@@ -10,7 +10,7 @@ It always writes exactly **20 formulations**:
 - **10 exploration/calibration** picks chosen from generated residual probes first, then BO fallback only if needed
 
 The script is intentionally strict. It validates required inputs before
-generation, validates all 10 outputs again before write, and aborts without
+generation, validates all 20 outputs again before write, and aborts without
 writing partial results if anything is inconsistent.
 
 ## Usage
@@ -43,9 +43,10 @@ the latest completed wet-lab stage in `validation_results.csv` must be `N-1`.
 ### Exploitation
 
 - source only from `05` BO candidate files
+- normalize loaded BO candidates with the same practical concentration floor used by `05`
 - drop already tested formulations
 - rank by predicted viability with uncertainty and acquisition tie-breaks
-- keep a simple chemistry-family diversity cap so the final 5 are not all near-duplicates
+- keep a simple chemistry-family diversity cap so the final 10 are not all near-duplicates
 
 ### Exploration / Calibration
 
@@ -54,7 +55,7 @@ the latest completed wet-lab stage in `validation_results.csv` must be `N-1`.
 - try positive-residual anchor thresholds in descending order: `10.0`, `8.0`, `5.0`, `2.0`, `0.0`
 - convert positive residuals into feature-level and pair-level blind-spot signals
 - generate probes by midpoint interpolation or local perturbation around underpredicted anchors from any historical positive-residual stage
-- clip to BO bounds and enforce the BO-derived ingredient-count limit
+- clip to BO bounds, zero sub-threshold trace ingredients, and enforce the BO-derived ingredient-count limit
 - re-score with the active model
 - keep generated probes ahead of BO fallback, even if a relaxed family cap is needed to fill the exploration bucket
 - backfill from BO only if fewer than 10 valid generated probes survive after the generated-only top-up pass
@@ -81,6 +82,12 @@ Outputs are written under:
 - blind-spot and novelty scores
 - canonical feature columns in model order
 - formulation text and rationale
+
+Displayed formulation identity follows the same floor as BO generation and `06`
+matching:
+
+- `_pct` values `<0.1%` are omitted
+- `_M` values `<0.001 M` (`<1.0 mM`) are omitted
 
 The metadata and input-validation artifacts also record which residual thresholds
 were tried, which threshold was selected, how many exploration rows came

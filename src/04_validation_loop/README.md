@@ -92,9 +92,13 @@ python src/07_next_formulations/next_formulations.py
 That script is separate from the update loop on purpose:
 
 - `04_validation_loop` measures how the frozen stages performed
-- `07_next_formulations` uses the latest completed stage residuals plus active BO outputs to choose the next 10 formulations
-- the split is fixed at 5 exploitation + 5 exploration/calibration
+- `07_next_formulations` uses the latest completed stage residuals plus active BO outputs to choose the next 20 formulations
+- the split is fixed at 10 exploitation + 10 exploration/calibration
 - the run is strict: it fails before writing if the active stage, validation stage sequence, or required BO artifacts are inconsistent
+
+The update scripts here still train on raw wet-lab numeric concentrations. The
+practical concentration floor used by `05`, `06`, and `07` changes candidate
+generation and formulation identity matching, not the retraining inputs.
 
 ### ⚠️ Before Running Any Update Script
 

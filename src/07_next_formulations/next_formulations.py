@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate the next wet-lab formulations with a fixed 5/5 exploit-explore split.
+Generate the next wet-lab formulations with a fixed 10/10 exploit-explore split.
 
 The script is intentionally strict:
 - validate required inputs up front
 - fail before writing if anything is missing or inconsistent
 - generate exploration probes from residual blind spots rather than only from
   saved candidate CSVs
-- validate the final 10 formulations before writing any outputs
+- validate the final 20 formulations before writing any outputs
 """
 
 from __future__ import annotations
@@ -43,7 +43,12 @@ for path in [PROJECT_ROOT, VALIDATION_LOOP_DIR, BO_DIR, HELPER_DIR]:
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from formulation_formatting import format_formulation  # noqa: E402
+from formulation_formatting import (  # noqa: E402
+    format_formulation,
+    normalize_formulation_dataframe,
+    normalize_formulation_row,
+    normalize_formulation_vector,
+)
 from update_model_weighted_prior import CompositeGP  # noqa: F401,E402
 from bo_optimizer import BOConfig, BayesianOptimizer  # noqa: E402
 
@@ -143,9 +148,10 @@ def format_stage_label(stage: int, iteration_dir: str) -> str:
 
 def active_features(row: pd.Series, feature_names: Sequence[str]) -> List[str]:
     """Return active features for one formulation row."""
+    normalized = normalize_formulation_row(row, feature_names)
     names: List[str] = []
     for feature_name in feature_names:
-        value = row.get(feature_name, 0.0)
+        value = normalized.get(feature_name, 0.0)
         if pd.isna(value):
             continue
         if abs(float(value)) > FEATURE_THRESHOLD:
@@ -155,9 +161,10 @@ def active_features(row: pd.Series, feature_names: Sequence[str]) -> List[str]:
 
 def top_features_by_magnitude(row: pd.Series, feature_names: Sequence[str], limit: int = 2) -> List[str]:
     """Return the largest active features in descending magnitude."""
+    normalized = normalize_formulation_row(row, feature_names)
     ranked: List[Tuple[float, str]] = []
     for feature_name in feature_names:
-        value = row.get(feature_name, 0.0)
+        value = normalized.get(feature_name, 0.0)
         if pd.isna(value):
             continue
         value = float(value)
@@ -313,6 +320,11 @@ def align_candidate_df(df: pd.DataFrame, feature_names: Sequence[str], path: Pat
     aligned["n_ingredients"] = aligned["n_ingredients"].fillna(0).astype(int)
     if "acquisition_value" in aligned.columns:
         aligned["acquisition_value"] = aligned["acquisition_value"].astype(float)
+    aligned = normalize_formulation_dataframe(aligned, feature_names)
+    aligned["dmso_percent"] = aligned.get("dmso_M", pd.Series(np.zeros(len(aligned)))) * 78.13 / (1.10 * 10.0)
+    aligned["n_ingredients"] = [
+        len(active_features(row, feature_names)) for _, row in aligned.iterrows()
+    ]
     return aligned
 
 
@@ -402,6 +414,7 @@ def load_bo_candidate_pool(
             if signature in tested_signatures:
                 continue
             record = {name: float(row.get(name, 0.0)) for name in active_stage.feature_names}
+            dmso_percent = float(record.get("dmso_M", 0.0)) * 78.13 / (1.10 * 10.0)
             record.update(
                 {
                     "origin": "bo_candidate",
@@ -411,8 +424,8 @@ def load_bo_candidate_pool(
                     "predicted_viability": float(row["predicted_viability"]),
                     "uncertainty": float(row["uncertainty"]),
                     "acquisition_value": round_or_none(row.get("acquisition_value")),
-                    "dmso_percent": float(row.get("dmso_percent", 0.0)),
-                    "n_ingredients": int(row.get("n_ingredients", len(active_features(row, active_stage.feature_names)))),
+                    "dmso_percent": dmso_percent,
+                    "n_ingredients": len(active_features(pd.Series(record), active_stage.feature_names)),
                     "signature": signature,
                     "chemistry_family": chemistry_family(row, active_stage.feature_names),
                     "anchor_stage": None,
@@ -726,7 +739,8 @@ def vector_to_record(
     source_rank: Optional[int] = None,
 ) -> Dict:
     """Convert one formulation vector into the common record shape."""
-    record = {name: float(vector[idx]) for idx, name in enumerate(feature_names)}
+    normalized_vector = normalize_formulation_vector(vector, feature_names)
+    record = {name: float(normalized_vector[idx]) for idx, name in enumerate(feature_names)}
     row = pd.Series(record)
     dmso_molar = float(record.get("dmso_M", 0.0))
     dmso_percent = dmso_molar * 78.13 / (1.10 * 10.0)
@@ -790,9 +804,9 @@ def finalise_generated_vector(
     protected_features: Sequence[str],
 ) -> np.ndarray:
     """Clip and sparsify a generated probe using BO's search constraints."""
-    x = optimizer._clip_to_bounds(vector.copy())
+    x = normalize_formulation_vector(optimizer._clip_to_bounds(vector.copy()), feature_names)
     x = sparsify_vector(x, feature_names, optimizer.effective_max_ingredients, protected_features)
-    return optimizer._clip_to_bounds(x)
+    return normalize_formulation_vector(optimizer._clip_to_bounds(x), feature_names)
 
 
 def build_midpoint_probe(
@@ -1382,7 +1396,7 @@ def validate_output_rows(
     optimizer: BayesianOptimizer,
     tested_signatures: set[str],
 ) -> None:
-    """Validate the final 10 outputs before writing anything."""
+    """Validate the final 20 outputs before writing anything."""
     if len(rows) != TOTAL_COUNT:
         raise ValidationError(f"Expected {TOTAL_COUNT} final rows, found {len(rows)}.")
 

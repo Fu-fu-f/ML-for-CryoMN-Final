@@ -30,7 +30,11 @@ _helper_dir = os.path.join(os.path.dirname(_script_dir), 'helper')
 if _helper_dir not in sys.path:
     sys.path.insert(0, _helper_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
-from formulation_formatting import format_formulation  # noqa: E402
+from formulation_formatting import (  # noqa: E402
+    format_formulation,
+    normalize_formulation_matrix,
+    normalize_formulation_vector,
+)
 from observed_context import (  # noqa: E402
     collapse_observed_context_for_bo,
     load_observed_context,
@@ -285,7 +289,9 @@ class BayesianOptimizer:
             self.support_radius = np.inf
             return
 
-        X_observed = collapsed[self.feature_names].values
+        X_observed = normalize_formulation_matrix(collapsed[self.feature_names].values, self.feature_names)
+        collapsed.loc[:, self.feature_names] = X_observed
+        self.seed_context = collapsed
         context_weights = collapsed['context_weight'].to_numpy(dtype=float)
         observed_counts = np.array([count_nonzero(row) for row in X_observed], dtype=int)
         observed_nonzero = observed_counts[observed_counts > 0]
@@ -349,7 +355,7 @@ class BayesianOptimizer:
         """
         Enforce max ingredients by zeroing smallest components.
         """
-        x_sparse = x.copy()
+        x_sparse = normalize_formulation_vector(x, self.feature_names)
         n_ing = count_nonzero(x_sparse)
         if n_ing > self.effective_max_ingredients:
             nonzero_idx = np.where(np.abs(x_sparse) > 1e-6)[0]
@@ -437,7 +443,7 @@ class BayesianOptimizer:
 
     def _sparsify_batch(self, X: np.ndarray) -> np.ndarray:
         """Vectorized sparsification used inside the DE objective."""
-        X_sparse = self._clip_to_bounds_batch(X).copy()
+        X_sparse = normalize_formulation_matrix(self._clip_to_bounds_batch(X), self.feature_names)
         if self.effective_max_ingredients >= X_sparse.shape[1]:
             return X_sparse
 
@@ -683,19 +689,11 @@ class BayesianOptimizer:
                 y_best, seed, found_formulations, seed_formulations
             )
             attempt += 1
-            
-            # Enforce constraints by clipping
+
+            x_opt = self._sparsify(self._clip_to_bounds(x_opt))
             if self.dmso_index >= 0:
                 x_opt[self.dmso_index] = min(x_opt[self.dmso_index], self.max_dmso_molar)
-            
-            # Sparsify: zero out smallest components if too many ingredients
-            n_ing = count_nonzero(x_opt)
-            if n_ing > self.effective_max_ingredients:
-                # Zero out smallest components
-                nonzero_idx = np.where(np.abs(x_opt) > 1e-6)[0]
-                sorted_idx = nonzero_idx[np.argsort(np.abs(x_opt[nonzero_idx]))]
-                for idx in sorted_idx[:n_ing - self.effective_max_ingredients]:
-                    x_opt[idx] = 0.0
+                x_opt = self._sparsify(self._clip_to_bounds(x_opt))
 
             if self._is_duplicate(x_opt, found_formulations):
                 if len(candidates) < n_candidates and attempt < max_attempts:

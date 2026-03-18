@@ -61,6 +61,15 @@ The evaluator reports:
 - batch-level predictive metrics such as RMSE, MAE, Spearman, Kendall, coverage, and hit rates
 - candidate-rank cross references showing which frozen candidate rows were later tested in wet lab
 
+Candidate-hit matching uses the same practical concentration floor as `05` and
+`07`:
+
+- `_pct` values `<0.1%` are treated as absent
+- `_M` values `<0.001 M` (`<1.0 mM`) are treated as absent
+
+This means a frozen candidate row can still count as a later wet-lab hit when
+the only difference is a trace ingredient that should effectively be zero.
+
 ## Explainability
 
 `explainability.py` generates iteration-specific artifacts under:

@@ -54,7 +54,7 @@ python src/06_evaluation_explainability/explainability.py
 # 6. Evaluate frozen stages against their wet-lab batches
 python src/06_evaluation_explainability/evaluate_iterations.py
 
-# 7. Generate the next 10-formulation wet-lab batch
+# 7. Generate the next 20-formulation wet-lab batch
 python src/07_next_formulations/next_formulations.py
 ```
 
@@ -88,6 +88,7 @@ are actually present in the latest completed wet-lab batch.
 - Composite iterations are strict: if metadata says composite, the shared resolver will not fall back to a standard GP automatically.
 - `03_optimization`, `05_bo_optimization`, and `06_evaluation_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
 - `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
+- `05`, `06`, and `07` share a practical concentration floor for formulation identity: values below `0.1%` or below `1.0 mM` are treated as absent when generating candidates, matching hits, and rendering formulation strings.
 
 ## Results Snapshot
 
@@ -123,6 +124,7 @@ This script:
 - resolves the active iteration automatically
 - requires the latest completed wet-lab stage to be the immediately previous stage
 - uses `05` BO outputs for 10 exploitation picks
+- normalizes existing and newly generated candidates so trace ingredients below `0.1%` or `1.0 mM` are treated as absent
 - adaptively relaxes the positive-residual anchor threshold when stronger anchors are unavailable
 - keeps generated residual probes ahead of BO fallback when filling the 10 exploration slots
 - allows exploration probes to anchor from any historical positive-residual wet-lab stage
@@ -161,6 +163,10 @@ Outputs:
 - `results/evaluation/iteration_prospective_summary.json`
 - `results/evaluation/iteration_prospective_metrics.csv`
 - `results/evaluation/stage_performance.png`
+
+Candidate-hit matching in `06_evaluation_explainability` uses the same
+practical concentration floor, so frozen candidate rows still count as later
+hits when the only difference is a trace ingredient below `0.1%` or `1.0 mM`.
 
 Current stage-level metrics from the saved evaluation artifacts:
 
@@ -235,7 +241,7 @@ For detailed interpretation and additional visualizations, see [`src/06_evaluati
     ├── 04_validation_loop/     # Integrate wet lab feedback, retrain model
     ├── 05_bo_optimization/     # Proper BO with Differential Evolution
     ├── 06_evaluation_explainability/  # Stage evaluation + explainability plots
-    └── 07_next_formulations/   # Build the next 10-formulation wet-lab batch
+    └── 07_next_formulations/   # Build the next 20-formulation wet-lab batch
 ```
 
 ## Module Descriptions
@@ -248,7 +254,7 @@ For detailed interpretation and additional visualizations, see [`src/06_evaluati
 | `04_validation_loop` | Three update strategies + iteration checkpointing | Closing the active learning loop with wet lab feedback |
 | `05_bo_optimization` | Differential Evolution with batched population scoring, wet-lab-aware BO context, shared iteration-aware model loading | Exploiting validated winners while proposing nearby informative variants |
 | `06_evaluation_explainability` | Stage-based evaluation, SHAP, PDPs, Interaction Contours, shared iteration-aware model loading | Measuring frozen-stage performance and understanding model drivers |
-| `07_next_formulations` | Strict next-batch generation from BO outputs + residual blind spots | Selecting exactly 10 future wet-lab formulations with a fixed 5 exploit / 5 explore split |
+| `07_next_formulations` | Strict next-batch generation from BO outputs + residual blind spots | Selecting exactly 20 future wet-lab formulations with a fixed 10 exploit / 10 explore split |
 
 ## Key Features
 
