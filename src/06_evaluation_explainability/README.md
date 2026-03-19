@@ -111,22 +111,43 @@ If no explicit iteration metadata exists, the fallback directory is:
 
 - `results/explainability/active_model/`
 
+The explainability suite is now intentionally support-aware:
+
+- slice and contour axes default to observed quantile bounds instead of raw extrema
+- observed literature and wet-lab rows are overlaid wherever support matters
+- stronger-support regions are marked with dashed boundaries or line-style changes instead of masking the surface
+- the BO landscape keeps the contour aesthetic, but documents which production penalties are included
+
+Support cues:
+
+- In `partial_dependence_plots.png`, dashed curve segments indicate the same empirical slice continued outside stronger local 1D support.
+- In `interaction_contours.png` and `acquisition_landscape.png`, the dashed white boundary marks the stronger pairwise support envelope estimated from observed formulations.
+- Inside that dashed boundary, the surface is better grounded in observed data. Outside it, the surface is still shown for continuity, but should be interpreted as more extrapolative.
+- In `feature_importance.png`, the vertical dashed line is only a visual dominance cutoff to separate the strongest features from the long tail; it is not a hard statistical threshold.
+- In `shap_summary.png`, only the top features are shown. Color encodes feature value and horizontal spread shows directional contribution magnitude across observed formulations.
+
 Artifacts:
 
 | File | Description |
 |------|-------------|
 | `feature_importance.csv` | Recomputed permutation importance (weighted for composite model) |
-| `feature_importance.png` | Horizontal bar chart of permutation-based feature importance |
-| `shap_summary.png` | SHAP beeswarm plot showing individual feature impacts |
+| `feature_importance.png` | Publication-style overview of weighted permutation importance with dominant-feature emphasis |
+| `shap_summary.png` | SHAP beeswarm focused on the top features and their directional impact on observed rows |
 | `shap_importance.png` | SHAP-based feature importance ranking |
-| `partial_dependence_plots.png` | PDPs showing how viability changes with each ingredient |
-| `interaction_contours.png` | 2D contour plots of ingredient pair interactions |
-| `acquisition_landscape.png` | Acquisition visualization (UCB by default; EI configurable) |
-| `uncertainty_analysis.png` | GP uncertainty calibration and distribution analysis |
+| `partial_dependence_plots.png` | Support-aware empirical marginal slices over observed rows, with dashed segments outside stronger local support |
+| `interaction_contours.png` | Support-aware pairwise contour maps with observed-point overlays and dashed support boundaries |
+| `acquisition_landscape.png` | Static BO score landscape using the `05` visual language, with support and sparsity penalties but no sequential batch-diversity term |
+| `uncertainty_analysis.png` | Decision-focused uncertainty dashboard covering calibration, residual growth, and uncertainty by viability band |
+| `support_diagnostics.png` | Compact support-envelope view for the top features and top pair, split by literature vs wet lab |
 
 Feature importance is always recomputed at runtime against the resolved active
 model. When using the composite model, weighting follows `context_weight` so
 wet-lab rows influence importance consistently with the active iteration.
+
+`acquisition_landscape.png` should be interpreted as a static approximation of
+the production BO objective. It reuses the `05_bo_optimization` acquisition
+settings and static penalties, but it does not include sequential
+batch-diversity effects that depend on already-selected candidates.
 
 > `shap` is optional. If it is not installed, the SHAP plots are skipped while
 > the other explainability outputs still run.
