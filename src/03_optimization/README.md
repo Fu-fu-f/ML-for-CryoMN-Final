@@ -1,10 +1,10 @@
-# Step 3: Candidate Generation via Random Sampling
+# Step 3: Random-Sampling Candidate Generation
 
 ## Overview
 
-This module generates candidate cryoprotective formulations using **random sampling + GP prediction**. It provides a fast way to explore the formulation space, though it uses pure exploitation (no exploration-exploitation balance).
+This module generates candidate cryoprotective formulations using **random sampling + GP prediction**. It is a fast baseline that samples broadly, filters by practical constraints, and ranks survivors by predicted viability.
 
-> **Note**: For proper Bayesian optimization with acquisition-guided search, see [`05_bo_optimization`](../05_bo_optimization/README.md).
+> **Note**: `03` does not perform acquisition-guided exploration. For Bayesian optimization with acquisition-guided search, see [`05_bo_optimization`](../05_bo_optimization/README.md).
 
 ## Usage
 
@@ -67,21 +67,22 @@ candidate identity/output text.
 | Max ingredients | 10 |
 | Min viability | 70% (target) |
 
-## Comparison with Proper BO
+## Comparison with BO Search
 
 | Aspect | This Module (03) | Proper BO (05) |
 |--------|------------------|----------------|
 | **Method** | Random sampling | Differential Evolution |
-| **Selection** | Highest predicted mean | Highest UCB by default |
-| **Exploration** | None (pure exploitation) | Balanced via uncertainty |
+| **Selection** | Highest predicted mean | UCB-guided search, then exploit-oriented export |
+| **Exploration control** | None | Search uses uncertainty; `07` owns explicit wet-lab exploration policy |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
 | **Speed** | Fast (~seconds) | Slower (~minutes) |
-| **Best for** | Quick generation | Most informative experiments |
+| **Best for** | Quick baseline generation | Strong BO candidate pool for downstream batch design |
 
 ### Why the difference matters
 
-- **This module** suggests what the resolved model checkpoint predicts will work best
-- **Proper BO** suggests what would be most *informative* to test, including uncertain regions that might reveal better formulations
+- **This module** is a quick baseline: it samples candidates randomly and keeps the highest predicted means
+- **`05`** performs acquisition-guided BO search to build a stronger candidate pool
+- **`07`** is the explicit experiment-policy layer that turns the BO pool into an exploitation/exploration wet-lab slate
 
 ## Output Format
 

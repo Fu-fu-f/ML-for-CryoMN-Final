@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CryoMN Multi-Objective Bayesian Optimization
+CryoMN Candidate Generation via Random Sampling
 
-Optimizes cryoprotective formulations to minimize DMSO usage while
-maximizing cell viability using Bayesian optimization.
+Generates cryoprotective formulation candidates by random sampling,
+then ranks them by predicted viability under the active model.
 
 Author: CryoMN ML Project
 Date: 2026-01-24
@@ -13,14 +13,11 @@ import pandas as pd
 import numpy as np
 import os
 import sys
-from typing import Tuple, Dict, List, Optional
+from typing import Tuple, List, Optional
 from datetime import datetime
 from dataclasses import dataclass
 
-from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.preprocessing import StandardScaler
-from scipy.optimize import minimize, differential_evolution
-from scipy.stats import norm
 
 # Add shared helper modules to path for model resolution and observed-context loading
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,76 +37,12 @@ from observed_context import load_observed_context  # noqa: E402
 
 @dataclass
 class OptimizationConfig:
-    """Configuration for Bayesian optimization."""
+    """Configuration for random candidate generation."""
     max_ingredients: int = 10  # Maximum non-zero ingredients per formulation
     max_dmso_percent: float = 5.0  # Maximum DMSO percentage
     min_viability: float = 70.0  # Minimum target viability
     n_candidates: int = 20  # Number of candidate formulations to generate
-    acquisition: str = 'ei'  # Acquisition function: 'ei', 'ucb', 'poi'
-    exploration_weight: float = 0.1  # UCB exploration weight (kappa)
     random_seed: int = 42
-
-
-# =============================================================================
-# ACQUISITION FUNCTIONS
-# =============================================================================
-
-def expected_improvement(mean: np.ndarray, std: np.ndarray, 
-                         y_best: float, xi: float = 0.01) -> np.ndarray:
-    """
-    Calculate Expected Improvement acquisition function.
-    
-    Args:
-        mean: Predicted mean values
-        std: Predicted standard deviations
-        y_best: Best observed value so far
-        xi: Exploration-exploitation trade-off parameter
-        
-    Returns:
-        EI values
-    """
-    # Handle zero variance
-    std = np.maximum(std, 1e-9)
-    
-    z = (mean - y_best - xi) / std
-    ei = (mean - y_best - xi) * norm.cdf(z) + std * norm.pdf(z)
-    
-    return ei
-
-
-def upper_confidence_bound(mean: np.ndarray, std: np.ndarray, 
-                            kappa: float = 2.0) -> np.ndarray:
-    """
-    Calculate Upper Confidence Bound acquisition function.
-    
-    Args:
-        mean: Predicted mean values
-        std: Predicted standard deviations
-        kappa: Exploration weight
-        
-    Returns:
-        UCB values
-    """
-    return mean + kappa * std
-
-
-def probability_of_improvement(mean: np.ndarray, std: np.ndarray,
-                                y_best: float, xi: float = 0.01) -> np.ndarray:
-    """
-    Calculate Probability of Improvement.
-    
-    Args:
-        mean: Predicted mean values
-        std: Predicted standard deviations
-        y_best: Best observed value
-        xi: Margin
-        
-    Returns:
-        POI values
-    """
-    std = np.maximum(std, 1e-9)
-    z = (mean - y_best - xi) / std
-    return norm.cdf(z)
 
 
 # =============================================================================
@@ -121,55 +54,16 @@ def count_ingredients(x: np.ndarray, threshold: float = 1e-6) -> int:
     return np.sum(np.abs(x) > threshold)
 
 
-def dmso_penalty(x: np.ndarray, dmso_index: int, max_dmso_molar: float) -> float:
-    """
-    Calculate penalty for exceeding DMSO limit.
-    
-    Args:
-        x: Formulation vector
-        dmso_index: Index of DMSO in feature vector
-        max_dmso_molar: Maximum allowed DMSO concentration (molar)
-        
-    Returns:
-        Penalty value (0 if within limit)
-    """
-    if dmso_index < 0 or dmso_index >= len(x):
-        return 0.0
-    
-    dmso_conc = x[dmso_index]
-    if dmso_conc > max_dmso_molar:
-        return (dmso_conc - max_dmso_molar) * 100  # Strong penalty
-    return 0.0
-
-
-def ingredient_count_penalty(x: np.ndarray, max_ingredients: int) -> float:
-    """
-    Calculate penalty for exceeding ingredient count.
-    
-    Args:
-        x: Formulation vector
-        max_ingredients: Maximum allowed ingredients
-        
-    Returns:
-        Penalty value
-    """
-    count = count_ingredients(x)
-    if count > max_ingredients:
-        return (count - max_ingredients) * 10
-    return 0.0
-
-
 # =============================================================================
 # OPTIMIZATION CORE
 # =============================================================================
 
 class FormulationOptimizer:
     """
-    Multi-objective Bayesian optimizer for cryoprotective formulations.
-    
-    Objectives:
-    1. Maximize viability (primary)
-    2. Minimize DMSO usage (secondary)
+    Random-sampling candidate generator for cryoprotective formulations.
+
+    The optimizer samples formulations within practical bounds, filters
+    by constraints, and ranks the surviving candidates by predicted viability.
     """
     
     def __init__(self, gp, scaler: StandardScaler,
@@ -182,7 +76,7 @@ class FormulationOptimizer:
             gp: Trained Gaussian Process model (or CompositeGP)
             scaler: Feature scaler (unused if is_composite)
             feature_names: List of feature names
-            config: Optimization configuration
+            config: Candidate generation configuration
             is_composite: If True, model handles scaling internally
         """
         self.gp = gp
@@ -236,40 +130,6 @@ class FormulationOptimizer:
         
         return bounds
     
-    def _objective(self, x: np.ndarray, y_best: float) -> float:
-        """
-        Combined objective function for optimization.
-        
-        Maximizes: viability - penalties
-        """
-        x_eval = self._apply_practical_floor(np.asarray(x, dtype=float))
-        x_reshaped = x_eval.reshape(1, -1)
-        
-        # Get prediction
-        if self.is_composite:
-            mean, std = self.gp.predict(x_reshaped, return_std=True)
-        else:
-            x_scaled = self.scaler.transform(x_reshaped)
-            mean, std = self.gp.predict(x_scaled, return_std=True)
-        mean = mean[0]
-        std = std[0]
-        
-        # Calculate acquisition value (to maximize)
-        if self.config.acquisition == 'ei':
-            acq = expected_improvement(mean, std, y_best)
-        elif self.config.acquisition == 'ucb':
-            acq = upper_confidence_bound(mean, std, self.config.exploration_weight)
-        else:
-            acq = probability_of_improvement(mean, std, y_best)
-        
-        # Apply penalties
-        penalty = 0.0
-        penalty += dmso_penalty(x_eval, self.dmso_index, self.max_dmso_molar)
-        penalty += ingredient_count_penalty(x_eval, self.config.max_ingredients)
-        
-        # Return negative (for minimization)
-        return -(acq - penalty)
-    
     def _generate_random_candidate(self) -> np.ndarray:
         """Generate a random candidate formulation."""
         x = np.zeros(len(self.feature_names))
@@ -306,15 +166,13 @@ class FormulationOptimizer:
             n_candidates = self.config.n_candidates
         
         if self.is_composite:
-            # When using composite model, compute y_best from model predictions
-            # Raw y_observed may contain literature values (up to 100%) that the
-            # composite model would predict much lower, making EI near-zero everywhere
-            y_pred = self.gp.predict(X_observed)
-            y_best = np.max(y_pred)
-            print(f"Best model-predicted viability: {y_best:.1f}% (raw observed max: {np.max(y_observed):.1f}%)")
+            best_predicted = np.max(self.gp.predict(X_observed))
+            print(
+                f"Best model-predicted viability: {best_predicted:.1f}% "
+                f"(raw observed max: {np.max(y_observed):.1f}%)"
+            )
         else:
-            y_best = np.max(y_observed)
-            print(f"Best observed viability: {y_best:.1f}%")
+            print(f"Best observed viability: {np.max(y_observed):.1f}%")
         
         # Generate many random candidates and select the best
         n_samples = n_candidates * 50  # Over-sample
@@ -456,7 +314,7 @@ def export_candidates(candidates_df: pd.DataFrame, feature_names: List[str],
     summary_path = output_path.replace('.csv', '_summary.txt')
     with open(summary_path, 'w') as f:
         f.write("=" * 80 + "\n")
-        f.write("CryoMN Optimized Formulation Candidates\n")
+        f.write("CryoMN Random-Sampling Formulation Candidates\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
         f.write("=" * 80 + "\n\n")
         
@@ -512,7 +370,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     print("=" * 80)
-    print("CryoMN Multi-Objective Bayesian Optimization")
+    print("CryoMN Random Candidate Generation")
     print("=" * 80)
     
     print("\nLoading trained model...")
@@ -548,20 +406,19 @@ def main():
         max_dmso_percent=5.0,
         min_viability=70.0,
         n_candidates=20,
-        acquisition='ei',
     )
     
     optimizer = FormulationOptimizer(gp, scaler, feature_names, config, is_composite=is_composite)
     
     # Generate candidates
     print("\n" + "-" * 40)
-    print("Generating Optimized Candidates")
+    print("Generating Ranked Candidates")
     print("-" * 40)
     
-    print("\n1. General optimization (up to 5% DMSO allowed)...")
+    print("\n1. General candidate generation (up to 5% DMSO allowed)...")
     general_candidates = optimizer.optimize(X, y, n_candidates=20)
     
-    print("\n2. Low-DMSO optimization (<0.5% DMSO)...")
+    print("\n2. Low-DMSO candidate generation (<0.5% DMSO)...")
     dmso_free_candidates = optimizer.generate_low_dmso_candidates(X, y, n_candidates=20)
     
     # Export results

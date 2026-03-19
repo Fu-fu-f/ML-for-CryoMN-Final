@@ -4,6 +4,8 @@
 
 This module performs **proper Bayesian optimization** using Differential Evolution (DE) to maximize the configured acquisition function. By default it uses **Upper Confidence Bound (UCB)**, seeds the search from the best observed formulations, and then uses batch-mode local penalization to generate diverse nearby candidates. DE population scoring is evaluated in batches so GP prediction, acquisition, and penalty calculations run over each generation as a vectorized pass rather than point-by-point.
 
+The key distinction in this pipeline is that `05` owns the **BO search**, while `07` owns the explicit **wet-lab exploit/explore policy**. `05` uses UCB during search, but the exported candidate files remain exploit-oriented and are intended to feed downstream selection rather than serve as the final exploration policy by themselves.
+
 ## Usage
 
 ```bash
@@ -43,7 +45,7 @@ concentration floor to every feature:
 This keeps trace ingredients from surviving into candidate identity, ingredient
 counts, and rendered formulation text.
 
-These BO outputs are also the exploitation input to
+These BO outputs are also the BO source pool consumed by
 `src/07_next_formulations/next_formulations.py`, which builds the final
 20-formulation wet-lab batch by combining:
 
@@ -73,8 +75,8 @@ These BO outputs are also the exploitation input to
    - Constraint violations (DMSO, ingredient count, distance from observed support) are penalized
    - Exact duplicates are skipped
 7. Recalculate pure UCB (without penalty) for accurate reporting
-8. Rank candidates by predicted viability
-9. Export with predictions and uncertainty estimates
+8. Rank candidates by predicted viability for exploit-oriented export
+9. Export with predictions, uncertainty estimates, and acquisition values for downstream policy use
 
 ### Batch Diversity (Local Penalization)
 
@@ -88,7 +90,7 @@ Where `strength` and `r` (radius) control how strongly candidates repel each oth
 
 ### Upper Confidence Bound (UCB)
 
-This optimizer uses the **Upper Confidence Bound (UCB)** acquisition function rather than Expected Improvement (EI). 
+This optimizer uses the **Upper Confidence Bound (UCB)** acquisition function rather than Expected Improvement (EI). The BO part is the search itself: DE repeatedly optimizes UCB over the constrained formulation space to discover the candidate set before the final export ordering is applied.
 
 ```
 UCB(x) = μ(x) + κ · σ(x)
@@ -136,8 +138,8 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 | Aspect | `03_optimization` | `05_bo_optimization` |
 |--------|-------------------|----------------------|
 | **Search** | Random sampling | Differential Evolution |
-| **Acquisition** | Sorts by mean only | Maximizes UCB by default (EI optional) |
-| **Exploration** | Pure exploitation | Exploit observed winners, then explore nearby variants |
+| **Acquisition** | None | Maximizes UCB by default (EI optional) |
+| **Exploration ownership** | None | BO search uses uncertainty; `07` owns explicit wet-lab exploration policy |
 | **Diversity** | Naturally diverse (random) | Batch-mode penalization |
 | **Observed context** | Combined literature + wet-lab rows | Combined literature + wet-lab rows with analytic BO weights |
 | **Speed** | Fast | Slower overall, but DE population scoring is batched/vectorized |
@@ -146,5 +148,5 @@ This matters for narrow peaks such as the validated ectoin + ethylene glycol reg
 ## When to Use Which?
 
 - **`03_optimization`**: Quick candidate generation, initial exploration, when speed matters
-- **`05_bo_optimization`**: Serious optimization, when you want to preserve the best validated recipes and explore high-value local variants around them
+- **`05_bo_optimization`**: Serious optimization, when you want a BO-generated candidate pool that preserves the best validated recipes and explores high-value local variants around them
 - **`07_next_formulations`**: After `05`, when you need the actual wet-lab batch recommendation with a strict 8 exploit / 12 explore split, smaller-batch subset recommendations, and full input/output validation
