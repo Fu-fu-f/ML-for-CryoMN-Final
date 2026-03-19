@@ -62,6 +62,18 @@ The evaluator reports:
 - candidate-rank cross references showing which frozen candidate rows were later tested in wet lab
 - recommendation-slate evaluation for `results/next_formulations/<iteration_tag>/next_formulations.csv`, including exploit/explore and origin-level summaries when those files exist
 
+`stage_performance.png` is a categorized small-multiples dashboard rather than
+a 3-metric summary chart. It groups stage metrics into:
+
+- error: RMSE and MAE
+- ranking: Spearman rho and Kendall tau
+- calibration: mean uncertainty and coverage @ 1σ
+- threshold decision: hit rate @ 50% and hit rate @ 70%
+
+Each metric gets its own raw-value bar-chart subplot, with the category
+groupings preserved in the overall layout. Missing stages render as `N/A`
+annotations instead of bars.
+
 Candidate-hit matching uses the same practical concentration floor as `05` and
 `07`:
 

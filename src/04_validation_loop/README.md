@@ -119,6 +119,24 @@ The update scripts here still train on raw wet-lab numeric concentrations. The
 practical concentration floor used by `05`, `06`, and `07` changes candidate
 generation and formulation identity matching, not the retraining inputs.
 
+## Wet-Lab Cross-Validation
+
+The update scripts do not use one permanent static train/test split. Instead,
+they estimate wet-lab generalization by cross-validating the wet-lab rows while
+always retaining the literature rows in fold training.
+
+Implementation details:
+
+- fold count is `min(5, len(X_val))`
+- `KFold` uses `shuffle=True` and `random_state=42`
+- if fewer than 2 wet-lab rows are available, `validation_rmse` is reported as `NaN`
+
+Per method:
+
+- standard update: each fold trains on `literature + wetlab_train_fold` and predicts the held-out wet-lab fold
+- weighted-simple update: same split, but the training-fold wet-lab rows are duplicated according to the selected weight multiplier before fitting
+- prior-mean correction update: the literature GP stays fixed, literature predictions are computed for all wet-lab rows, and only the wet-lab residual correction GP is cross-validated across the wet-lab folds
+
 ### ⚠️ Before Running Any Update Script
 
 > **These scripts overwrite the active model in `models/`.** Run them on a branch or commit your working tree first so you have a clean rollback point.
@@ -211,6 +229,6 @@ Each iteration is logged with:
 - Iteration number and iteration directory
 - Model method and whether the model is composite
 - Number of validation samples
-- Wet-lab cross-validated RMSE (`validation_rmse`)
+- Wet-lab cross-validated RMSE (`validation_rmse`), computed from the wet-lab-only K-fold procedure described above
 - Wet-lab in-sample RMSE (`wetlab_train_rmse` in model metadata)
 - Weighting method and parameters

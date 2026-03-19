@@ -89,6 +89,9 @@ by completed wet-lab stages.
 - `03_optimization`, `05_bo_optimization`, and `06_evaluation_explainability` all load the same iteration-aware observed context, and reconstruct it from literature + validation inputs on demand if the artifact is missing.
 - `05_bo_optimization` uses analytic wet-lab weights from the observed context when calibrating BO support geometry, instead of relying on literal duplicate rows.
 - `03`, `05`, `06`, and `07` share a practical concentration floor for formulation identity: values below `0.1%` or below `1.0 mM` are treated as absent when generating candidates, matching hits, and rendering formulation strings.
+- The repository does not rely on one permanent static train/test split. The update scripts estimate wet-lab generalization with K-fold cross-validation over wet-lab rows only, while retaining all literature rows in training for every fold.
+- In code, the wet-lab fold count is `min(5, len(X_val))` with `shuffle=True` and `random_state=42`. In the saved iterations in this repo that behaves as 5-fold CV, because every completed wet-lab stage has at least 5 measured rows.
+- For the standard update, each fold trains on `literature + wetlab_train_fold` and predicts the held-out wet-lab fold. The weighted-simple update uses the same split but duplicates the training-fold wet-lab rows, and the prior-mean update keeps the literature GP fixed while cross-validating only the wet-lab residual correction GP.
 
 ## Results Snapshot
 
@@ -167,7 +170,7 @@ model output against the wet-lab batch it actually generated:
 - `iteration_1_*` outputs → `EXP1101` to `EXP1206`
 - `iteration_2_*` outputs → `EXP2101` to `EXP2106`
 - `iteration_3_*` outputs → `EXP3101` to `EXP3108`
-- `iteration_4_*` outputs → `EXP4101` to `EXP4112`
+- `iteration_4_*` outputs → `EXP4101` to `EXP4106`
 - `iteration_5_*` outputs → pending wet-lab results
 
 Run:
@@ -195,7 +198,7 @@ Stage-level metrics from the saved evaluation artifacts:
 | Iteration 1 | `EXP1101-EXP1206` | 11 | 21.67 | -0.518 | 0.909 |
 | Iteration 2 | `EXP2101-EXP2106` | 6 | 14.74 | 0.086 | 0.667 |
 | Iteration 3 | `EXP3101-EXP3108` | 8 | 21.05 | 0.476 | 0.625 |
-| Iteration 4 | `EXP4101-EXP4112` | 12 | 9.24 | -0.600 | 0.833 |
+| Iteration 4 | `EXP4101-EXP4106` | 6 | 9.24 | -0.600 | 1.000 |
 | Iteration 5 | pending wet-lab results | 0 | N/A | N/A | N/A |
 
 Interpretation:

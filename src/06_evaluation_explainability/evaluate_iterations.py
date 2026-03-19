@@ -818,57 +818,183 @@ def write_outputs(results: Sequence[Dict[str, object]]):
 
 
 def write_performance_plot(results: Sequence[Dict[str, object]]):
-    """Save a compact chart of stage-level evaluation metrics."""
-    stage_results = [
-        result
-        for result in results
-        if result["batch_metrics"]["n_rows"]
-    ]
-    if not stage_results:
+    """Save a categorized small-multiples dashboard of stage-level evaluation metrics."""
+    if not results:
         return
 
-    labels = [result["label"].replace("_", "\n") for result in stage_results]
-    rmse = [result["batch_metrics"]["rmse"] for result in stage_results]
-    spearman = [result["batch_metrics"]["spearman_rho"] for result in stage_results]
-    hit50 = [result["batch_metrics"]["hit_rate_ge_50"] for result in stage_results]
+    stage_results = list(results)
 
-    plt.style.use("seaborn-v0_8-whitegrid")
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.8))
-    colors = ["#375E97", "#FB6542", "#3F681C"]
+    def display_label(result: Dict[str, object]) -> str:
+        if result["label"] == "literature_only":
+            return "literature\nonly"
+        return str(result["label"]).replace("_", "\n")
 
-    metric_specs = [
-        ("Batch RMSE", rmse, colors[0], "Lower is better"),
-        ("Spearman", spearman, colors[1], "Higher is better"),
-        ("Hit Rate @ 50%", hit50, colors[2], "Higher is better"),
+    labels = [display_label(result) for result in stage_results]
+
+    category_specs = [
+        {
+            "title": "Error Metrics",
+            "subtitle": "Lower is better for RMSE and MAE",
+            "metrics": [
+                ("RMSE", "rmse", 2, "#375E97"),
+                ("MAE", "mae", 2, "#FB6542"),
+            ],
+        },
+        {
+            "title": "Ranking Metrics",
+            "subtitle": "Higher is better",
+            "metrics": [
+                ("Spearman rho", "spearman_rho", 2, "#375E97"),
+                ("Kendall tau", "kendall_tau", 2, "#FB6542"),
+            ],
+        },
+        {
+            "title": "Calibration Metrics",
+            "subtitle": "1σ target = 0.68; uncertainty is diagnostic",
+            "metrics": [
+                ("Mean uncertainty", "mean_uncertainty", 2, "#375E97"),
+                ("Coverage @ 1σ", "coverage_1sigma", 2, "#FB6542"),
+            ],
+        },
+        {
+            "title": "Threshold Decision Metrics",
+            "subtitle": "Higher is better",
+            "metrics": [
+                ("Hit rate @ 50%", "hit_rate_ge_50", 2, "#375E97"),
+                ("Hit rate @ 70%", "hit_rate_ge_70", 2, "#FB6542"),
+            ],
+        },
     ]
 
-    for ax, (title, values, color, subtitle) in zip(axes, metric_specs):
-        bars = ax.bar(labels, values, color=color, width=0.65)
-        ax.set_title(f"{title}\n{subtitle}", fontsize=11)
-        if title == "Spearman":
-            ax.axhline(0.0, color="#444444", linewidth=1, linestyle="--", alpha=0.7)
-            ax.set_ylim(min(-0.6, min(values) - 0.1), max(0.3, max(values) + 0.1))
-        elif title == "Hit Rate @ 50%":
-            ax.set_ylim(0.0, 1.05)
-        else:
-            ax.set_ylim(0.0, max(values) * 1.2)
-        ax.tick_params(axis="x", labelrotation=0)
-        for bar, value in zip(bars, values):
-            offset = 0.02 if title != "Batch RMSE" else max(values) * 0.03
-            y = value + offset if value >= 0 else value - 0.08
-            va = "bottom" if value >= 0 else "top"
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                y,
-                f"{value:.2f}",
-                ha="center",
-                va=va,
-                fontsize=9,
+    def format_cell(value: float, digits: int) -> str:
+        if value is None or not math.isfinite(float(value)):
+            return "N/A"
+        return f"{float(value):.{digits}f}"
+
+    stage_colors = ["#9ecae1", "#fbb4ae", "#ccebc5", "#decbe4", "#fed9a6", "#e0e0e0"]
+
+    plt.style.use("seaborn-v0_8-whitegrid")
+    max_cols = max(len(category["metrics"]) for category in category_specs)
+    fig = plt.figure(figsize=(22, 28))
+    outer = fig.add_gridspec(len(category_specs), 1, hspace=0.33)
+
+    for row_idx, category in enumerate(category_specs):
+        inner = outer[row_idx].subgridspec(
+            2,
+            max_cols,
+            height_ratios=[0.22, 1.0],
+            hspace=0.12,
+            wspace=0.34,
+        )
+        title_ax = fig.add_subplot(inner[0, :])
+        title_ax.axis("off")
+        title_ax.text(
+            0.5,
+            1.0,
+            category["title"],
+            ha="center",
+            va="bottom",
+            fontsize=32,
+            fontweight="bold",
+        )
+        title_ax.text(
+            0.5,
+            0.52,
+            category["subtitle"],
+            ha="center",
+            va="bottom",
+            fontsize=24,
+            fontweight="semibold",
+        )
+
+        for col_idx in range(max_cols):
+            ax = fig.add_subplot(inner[1, col_idx])
+            if col_idx >= len(category["metrics"]):
+                ax.axis("off")
+                continue
+
+            metric_label, metric_key, digits, _color = category["metrics"][col_idx]
+            values = np.array(
+                [result["batch_metrics"].get(metric_key) for result in stage_results],
+                dtype=float,
+            )
+            x = np.arange(len(labels))
+            finite_mask = np.isfinite(values)
+            bar_colors = [
+                stage_colors[idx] if is_finite else "#cfcfcf"
+                for idx, is_finite in enumerate(finite_mask)
+            ]
+            heights = np.where(finite_mask, values, 0.0)
+            bars = ax.bar(
+                x,
+                heights,
+                color=bar_colors,
+                edgecolor="#444444",
+                linewidth=0.6,
             )
 
-    fig.suptitle("CryoMN Stage-Based Model Evaluation", fontsize=14, y=1.02)
-    fig.tight_layout()
-    fig.savefig(PLOT_PATH, dpi=200, bbox_inches="tight")
+            finite_values = values[finite_mask]
+            if finite_values.size:
+                minimum = float(np.min(finite_values))
+                maximum = float(np.max(finite_values))
+                if minimum >= 0.0:
+                    upper = maximum * 1.18 if maximum > 0 else 1.0
+                    lower = 0.0
+                else:
+                    padding = max((maximum - minimum) * 0.18, 0.25)
+                    lower = minimum - padding
+                    upper = maximum + padding
+                if math.isclose(lower, upper):
+                    upper = lower + 1.0
+                ax.set_ylim(lower, upper)
+                if lower < 0 < upper:
+                    ax.axhline(0.0, color="#444444", linewidth=1, linestyle="--", alpha=0.7)
+                offset = 0.04 * (upper - lower)
+                inner_pad = 0.06 * (upper - lower)
+            else:
+                ax.set_ylim(0.0, 1.0)
+                offset = 0.05
+                inner_pad = 0.08
+
+            for bar, value, is_finite in zip(bars, values, finite_mask):
+                if is_finite:
+                    if value >= 0:
+                        y = min(value + offset, upper - inner_pad)
+                        va = "bottom"
+                    else:
+                        y = max(value - offset, lower + inner_pad)
+                        va = "top"
+                    label = format_cell(value, digits)
+                else:
+                    y = lower + inner_pad
+                    va = "bottom"
+                    label = "N/A"
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    y,
+                    label,
+                    ha="center",
+                    va=va,
+                    fontsize=19,
+                    fontweight="semibold",
+                    clip_on=True,
+                    bbox={
+                        "boxstyle": "round,pad=0.15",
+                        "facecolor": "none",
+                        "edgecolor": "none",
+                        "alpha": 0.75,
+                    },
+                )
+
+            ax.set_title(metric_label, fontsize=24, pad=14, fontweight="semibold")
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels, fontsize=19, fontweight="bold")
+            ax.tick_params(axis="y", labelsize=19)
+            for tick_label in ax.get_yticklabels():
+                tick_label.set_fontweight("bold")
+
+    fig.subplots_adjust(top=0.98, bottom=0.03, left=0.06, right=0.98)
+    fig.savefig(PLOT_PATH, dpi=200, bbox_inches="tight", transparent=True)
     plt.close(fig)
 
 
@@ -894,7 +1020,7 @@ def write_next_formulations_plot(results: Sequence[Dict[str, object]]):
 
     plt.style.use("seaborn-v0_8-whitegrid")
     if not plot_rows:
-        fig, ax = plt.subplots(figsize=(10, 4.8))
+        fig, ax = plt.subplots(figsize=(12, 5.5))
         ax.axis("off")
         ax.text(
             0.5,
@@ -902,15 +1028,14 @@ def write_next_formulations_plot(results: Sequence[Dict[str, object]]):
             "No matched `07` recommendation rows are available for evaluation yet.",
             ha="center",
             va="center",
-            fontsize=13,
+            fontsize=15,
         )
-        fig.suptitle("CryoMN `07` Recommendation Policy Evaluation", fontsize=14, y=0.95)
         fig.tight_layout()
         fig.savefig(NEXT_FORMULATIONS_PLOT_PATH, dpi=200, bbox_inches="tight")
         plt.close(fig)
         return
 
-    fig, axes = plt.subplots(2, 2, figsize=(13.5, 8.5))
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     axes = axes.flatten()
     colors = {"exploit": "#1f6aa5", "explore": "#d66a1f"}
     labels = [row["label"] for row in plot_rows]
@@ -936,8 +1061,10 @@ def write_next_formulations_plot(results: Sequence[Dict[str, object]]):
 
         exploit_bars = ax.bar(x - width / 2, exploit_values, width=width, color=colors["exploit"], label="Exploit")
         explore_bars = ax.bar(x + width / 2, explore_values, width=width, color=colors["explore"], label="Explore")
-        ax.set_title(title, fontsize=11)
+        ax.set_title(title, fontsize=19, fontweight="semibold", pad=12)
         ax.set_xticks(x, labels)
+        ax.tick_params(axis="x", labelsize=17)
+        ax.tick_params(axis="y", labelsize=17)
 
         if "Residual" in title:
             ax.axhline(0.0, color="#444444", linewidth=1, linestyle="--", alpha=0.8)
@@ -976,13 +1103,14 @@ def write_next_formulations_plot(results: Sequence[Dict[str, object]]):
                     f"{value:.2f}",
                     ha="center",
                     va=va,
-                    fontsize=8.5,
+                    fontsize=16,
+                    fontweight="semibold",
                 )
 
-    axes[0].legend(frameon=False, loc="upper left")
-    fig.suptitle("CryoMN `07` Recommendation Policy Evaluation", fontsize=14, y=0.98)
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(NEXT_FORMULATIONS_PLOT_PATH, dpi=200, bbox_inches="tight")
+    for ax in axes:
+        ax.legend(frameon=False, loc="upper left", fontsize=17)
+    fig.tight_layout()
+    fig.savefig(NEXT_FORMULATIONS_PLOT_PATH, dpi=200, bbox_inches="tight", transparent=True)
     plt.close(fig)
 
 
