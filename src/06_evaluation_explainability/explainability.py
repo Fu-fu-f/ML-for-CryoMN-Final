@@ -260,6 +260,17 @@ def source_legend_handles(config: ExplainabilityConfig) -> List[Line2D]:
     ]
 
 
+def alpha_legend_handles(config: ExplainabilityConfig, base_color: Optional[str] = None) -> List[Line2D]:
+    """Legend handles for plots that distinguish sources by alpha rather than color."""
+    color = base_color or config.line_primary
+    return [
+        Line2D([0], [0], marker='o', color='none', markerfacecolor=color,
+               markeredgecolor='white', markeredgewidth=0.5, label='Literature', markersize=7, alpha=0.20),
+        Line2D([0], [0], marker='o', color='none', markerfacecolor=color,
+               markeredgecolor='white', markeredgewidth=0.6, label='Wet Lab', markersize=8, alpha=0.95),
+    ]
+
+
 def weighted_mean(values: np.ndarray, weights: Optional[np.ndarray] = None) -> float:
     """Compute a weighted mean with graceful fallback."""
     values = np.asarray(values, dtype=float)
@@ -363,7 +374,7 @@ def overlay_source_points(ax: plt.Axes, x: np.ndarray, y: np.ndarray, source_df:
             x[masks['literature']],
             y[masks['literature']],
             c=config.color_literature,
-            s=28,
+            s=56,
             alpha=alpha_literature,
             edgecolors='white',
             linewidths=0.35,
@@ -374,7 +385,7 @@ def overlay_source_points(ax: plt.Axes, x: np.ndarray, y: np.ndarray, source_df:
             x[masks['wetlab']],
             y[masks['wetlab']],
             c=config.color_wetlab,
-            s=42,
+            s=84,
             alpha=alpha_wetlab,
             edgecolors='white',
             linewidths=0.55,
@@ -767,9 +778,9 @@ def plot_interaction_contours(model, scaler, X: np.ndarray, feature_names: Seque
 
         support_mask = infer_support_mask_2d(X1, X2, X[:, idx1], X[:, idx2], config)
         contour = ax.contourf(X1, X2, Z, levels=18, cmap=viability_cmap)
-        ax.contour(X1, X2, Z, levels=9, colors='white', linewidths=0.6, alpha=0.22)
+        ax.contour(X1, X2, Z, levels=9, colors='white', linewidths=2, alpha=0.22)
         ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors='white',
-                   linewidths=1.1, alpha=0.82, linestyles='--', zorder=5)
+                   linewidths=2, alpha=0.82, linestyles='--', zorder=5)
         plt.colorbar(contour, ax=ax, label='Predicted Viability (%)')
 
         overlay_source_points(ax, X[:, idx1], X[:, idx2], df, config)
@@ -882,9 +893,9 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
             'Static BO Score',
         ),
     ]:
-        ax.contour(X1, X2, surface, levels=9, colors='white', linewidths=0.55, alpha=0.18)
+        ax.contour(X1, X2, surface, levels=9, colors='white', linewidths=2, alpha=0.18)
         ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors='white',
-                   linewidths=1.1, alpha=0.82, linestyles='--', zorder=5)
+                   linewidths=2, alpha=0.82, linestyles='--', zorder=5)
         overlay_source_points(ax, X[:, idx1], X[:, idx2], df, config, alpha_literature=0.35, alpha_wetlab=0.9)
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
@@ -896,7 +907,7 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
     best_idx = int(np.argmax(y))
     for ax in axes:
         ax.scatter(X[best_idx, idx1], X[best_idx, idx2], c=config.color_wetlab, s=160,
-                   marker='*', edgecolors='white', linewidths=1.6, zorder=9)
+                   marker='*', edgecolors='white', linewidths=2, zorder=9)
         ax.legend(handles=source_legend_handles(config) + [
             Line2D([0], [0], marker='*', color='none', markerfacecolor=config.color_wetlab,
                    markeredgecolor='white', markeredgewidth=1.2, label='Best observed', markersize=13)
@@ -924,21 +935,21 @@ def plot_uncertainty_analysis(model, scaler, X: np.ndarray, y: np.ndarray,
     fig, axes = plt.subplots(2, 2, figsize=config.figsize_dashboard)
 
     ax = axes[0, 0]
-    ax.plot([0, 100], [0, 100], linestyle='--', color='#4a5966', alpha=0.7, linewidth=1.2)
+    ax.plot([0, 100], [0, 100], linestyle='--', color='#4a5966', alpha=0.7, linewidth=2)
     if masks['literature'].any():
         sc = ax.scatter(y[masks['literature']], y_pred[masks['literature']], c=y_std[masks['literature']],
-                        cmap=config.cmap_uncertainty, s=36, alpha=0.5, edgecolors='white', linewidths=0.35)
+                        cmap=config.cmap_uncertainty, s=40, alpha=0.20, edgecolors='white', linewidths=0.35)
     else:
         sc = ax.scatter(y, y_pred, c=y_std, cmap=config.cmap_uncertainty, s=36, alpha=0.5,
                         edgecolors='white', linewidths=0.35)
     if masks['wetlab'].any():
         ax.scatter(y[masks['wetlab']], y_pred[masks['wetlab']], c=y_std[masks['wetlab']],
-                   cmap=config.cmap_uncertainty, s=62, alpha=0.95, edgecolors='white', linewidths=0.55)
+                   cmap=config.cmap_uncertainty, s=80, alpha=0.95, edgecolors='white', linewidths=0.55)
     plt.colorbar(sc, ax=ax, label='Uncertainty (std)')
     ax.set_xlabel('Actual Viability (%)')
     ax.set_ylabel('Predicted Viability (%)')
     ax.set_title('Predicted vs Actual', fontsize=14 + FONT_BUMP, fontweight='bold', pad=10)
-    ax.legend(handles=source_legend_handles(config), loc='upper left')
+    ax.legend(handles=alpha_legend_handles(config), loc='upper left')
 
     ax = axes[0, 1]
     multipliers = np.array([0.5, 0.75, 1.0, 1.5, 2.0, 2.5])
@@ -955,10 +966,10 @@ def plot_uncertainty_analysis(model, scaler, X: np.ndarray, y: np.ndarray,
     ax = axes[1, 0]
     if masks['literature'].any():
         ax.scatter(y_std[masks['literature']], np.abs(residuals[masks['literature']]),
-                   c=config.color_literature, s=34, alpha=0.45, edgecolors='white', linewidths=0.35)
+                   c=config.color_literature, s=50, alpha=0.4, edgecolors='white', linewidths=0.35)
     if masks['wetlab'].any():
         ax.scatter(y_std[masks['wetlab']], np.abs(residuals[masks['wetlab']]),
-                   c=config.color_wetlab, s=62, alpha=0.9, edgecolors='white', linewidths=0.55)
+                   c=config.color_wetlab, s=100, alpha=0.9, edgecolors='white', linewidths=0.55)
     z = np.polyfit(y_std, np.abs(residuals), 1)
     trend = np.poly1d(z)
     x_line = np.linspace(y_std.min(), y_std.max(), 200)
@@ -995,7 +1006,7 @@ def plot_uncertainty_analysis(model, scaler, X: np.ndarray, y: np.ndarray,
             if np.isfinite(height):
                 ax.text(bar.get_x() + bar.get_width() / 2, height + 0.25, f'{height:.1f}',
                         ha='center', va='bottom', fontsize=8.5 + FONT_BUMP)
-    ax.legend(loc='upper left')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.24), ncol=2)
 
     model_label = 'Composite' if is_composite else 'GP'
     plt.suptitle(f'{model_label} Model Uncertainty Analysis', fontsize=19 + FONT_BUMP, fontweight='bold', y=0.985)
@@ -1032,29 +1043,30 @@ def plot_support_diagnostics(X: np.ndarray, y: np.ndarray, feature_names: Sequen
         x_min, x_max = quantile_range(values, config, weights=weights)
         literature_values = values[masks['literature']]
         wetlab_values = values[masks['wetlab']]
+        support_color = config.line_primary
         if HAS_SEABORN:
-            sns.kdeplot(x=literature_values, ax=ax, fill=True, alpha=0.22,
-                        color=config.color_literature, linewidth=1.2, label='Literature')
+            sns.kdeplot(x=literature_values, ax=ax, fill=True, alpha=0.20,
+                        color=support_color, linewidth=1.2, label='Literature')
             if len(wetlab_values) >= 2:
-                sns.kdeplot(x=wetlab_values, ax=ax, fill=True, alpha=0.20,
-                            color=config.color_wetlab, linewidth=1.2, label='Wet Lab')
+                sns.kdeplot(x=wetlab_values, ax=ax, fill=True, alpha=0.95,
+                            color=support_color, linewidth=1.2, label='Wet Lab')
         else:
-            ax.hist(literature_values, bins=24, density=True, alpha=0.25,
-                    color=config.color_literature, label='Literature')
+            ax.hist(literature_values, bins=24, density=True, alpha=0.20,
+                    color=support_color, label='Literature')
             if len(wetlab_values) >= 1:
-                ax.hist(wetlab_values, bins=min(18, max(6, len(wetlab_values))), density=True, alpha=0.22,
-                        color=config.color_wetlab, label='Wet Lab')
+                ax.hist(wetlab_values, bins=min(18, max(6, len(wetlab_values))), density=True, alpha=0.95,
+                        color=support_color, label='Wet Lab')
         ax.set_xlim(x_min, x_max)
         ax.set_xlabel(f'{clean_feature_name(full)} ({get_unit(full)})')
         ax.set_ylabel('Observed density')
         ax.set_title(f'Support: {clean_feature_name(full)}', fontsize=13 + FONT_BUMP, fontweight='bold', pad=10)
-        ax.legend(loc='upper right')
+        ax.legend(handles=alpha_legend_handles(config, base_color=support_color), loc='upper right')
 
-    scatter = ax3.scatter(X[:, idx1], X[:, idx2], c=y, cmap=config.cmap_viability, s=30,
-                          alpha=0.45, edgecolors='white', linewidths=0.35)
+    scatter = ax3.scatter(X[:, idx1], X[:, idx2], c=y, cmap=config.cmap_viability, s=100,
+                          alpha=0.20, edgecolors='white', linewidths=0.35)
     if masks['wetlab'].any():
         ax3.scatter(X[masks['wetlab'], idx1], X[masks['wetlab'], idx2], c=y[masks['wetlab']],
-                    cmap=config.cmap_viability, s=70, alpha=0.95, edgecolors='white', linewidths=0.6)
+                    cmap=config.cmap_viability, s=180, alpha=0.95, edgecolors='white', linewidths=0.6)
     x_min, x_max = quantile_range(X[:, idx1], config, weights=weights)
     y_min, y_max = quantile_range(X[:, idx2], config, weights=weights)
     ax3.set_xlim(x_min, x_max)
@@ -1064,7 +1076,7 @@ def plot_support_diagnostics(X: np.ndarray, y: np.ndarray, feature_names: Sequen
     ax3.set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     ax3.set_title(f'Observed Support Map: {clean_feature_name(full1)} × {clean_feature_name(full2)}',
                   fontsize=14 + FONT_BUMP, fontweight='bold', pad=10)
-    ax3.legend(handles=source_legend_handles(config), loc='upper right')
+    ax3.legend(handles=alpha_legend_handles(config), loc='upper right')
 
     plt.suptitle('Support Diagnostics', fontsize=19 + FONT_BUMP, fontweight='bold', y=0.985)
     plt.tight_layout(rect=(0, 0, 1, 0.975))
