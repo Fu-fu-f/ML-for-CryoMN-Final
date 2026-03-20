@@ -40,6 +40,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 try:
     import seaborn as sns
@@ -129,6 +130,11 @@ class ExplainabilityConfig:
     color_literature: str = '#6a7f8f'
     color_wetlab: str = '#d55d3e'
     support_fill: str = '#cfd8df'
+    contour_line_dark: str = '#22303c'
+    contour_line_light: str = '#ffffff'
+    support_diagnostic_legend_scale: float = 1.5
+    interaction_min_axis_balance: float = 0.10
+    interaction_min_occupied_bins: int = 4
 
 
 def load_model_and_data(project_root: str):
@@ -250,24 +256,154 @@ def source_masks(df: pd.DataFrame) -> Dict[str, np.ndarray]:
     }
 
 
-def source_legend_handles(config: ExplainabilityConfig) -> List[Line2D]:
+def source_legend_handles(config: ExplainabilityConfig, edge_color: str = 'white') -> List[Line2D]:
     """Legend handles for literature / wet-lab point overlays."""
     return [
         Line2D([0], [0], marker='o', color='none', markerfacecolor=config.color_literature,
-               markeredgecolor='white', markeredgewidth=0.5, label='Literature', markersize=7, alpha=0.55),
+               markeredgecolor=edge_color, markeredgewidth=0.5, label='Literature', markersize=7, alpha=0.55),
         Line2D([0], [0], marker='o', color='none', markerfacecolor=config.color_wetlab,
-               markeredgecolor='white', markeredgewidth=0.6, label='Wet Lab', markersize=8, alpha=0.95),
+               markeredgecolor=edge_color, markeredgewidth=0.6, label='Wet Lab', markersize=8, alpha=0.95),
     ]
 
 
-def alpha_legend_handles(config: ExplainabilityConfig, base_color: Optional[str] = None) -> List[Line2D]:
+def alpha_legend_handles(config: ExplainabilityConfig, base_color: Optional[str] = None,
+                         marker_scale: float = 1.0) -> List[Line2D]:
     """Legend handles for plots that distinguish sources by alpha rather than color."""
     color = base_color or config.line_primary
     return [
         Line2D([0], [0], marker='o', color='none', markerfacecolor=color,
-               markeredgecolor='white', markeredgewidth=0.5, label='Literature', markersize=7, alpha=0.20),
+               markeredgecolor='white', markeredgewidth=0.5, label='Literature',
+               markersize=7 * marker_scale, alpha=0.20),
         Line2D([0], [0], marker='o', color='none', markerfacecolor=color,
-               markeredgecolor='white', markeredgewidth=0.6, label='Wet Lab', markersize=8, alpha=0.95),
+               markeredgecolor='white', markeredgewidth=0.6, label='Wet Lab',
+               markersize=8 * marker_scale, alpha=0.95),
+    ]
+
+
+def support_diagnostic_density_legend_handles(config: ExplainabilityConfig,
+                                              base_color: Optional[str] = None) -> List[Patch]:
+    """Legend handles that match the filled support-density bands."""
+    color = base_color or config.line_primary
+    return [
+        Patch(facecolor=color, edgecolor='none', alpha=0.30, label='Literature'),
+        Patch(facecolor=color, edgecolor='none', alpha=0.80, label='Wet Lab'),
+    ]
+
+
+def support_diagnostic_legend_kwargs(config: ExplainabilityConfig) -> Dict[str, float]:
+    """Shared, enlarged legend styling for support diagnostics."""
+    scale = max(config.support_diagnostic_legend_scale, 1.0)
+    return {
+        'fontsize': (9 + FONT_BUMP) * scale,
+        'borderpad': 0.35 * scale,
+        'handlelength': 1.8 * scale,
+        'handleheight': 0.8 * scale,
+        'handletextpad': 0.5 * scale,
+        'labelspacing': 0.3 * scale,
+    }
+
+
+def relative_luminance(color: Tuple[float, float, float, float] | Tuple[float, float, float] | str) -> float:
+    """Return the WCAG-style relative luminance for a color."""
+    rgb = np.array(mcolors.to_rgb(color), dtype=float)
+    linear = np.where(
+        rgb <= 0.04045,
+        rgb / 12.92,
+        ((rgb + 0.055) / 1.055) ** 2.4,
+    )
+    return float(np.dot(linear, np.array([0.2126, 0.7152, 0.0722])))
+
+
+def choose_contour_line_color(surface: np.ndarray, cmap_name: str,
+                              config: ExplainabilityConfig) -> str:
+    """Choose white or dark contour overlays from the underlying surface brightness."""
+    finite = np.asarray(surface, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0:
+        return config.contour_line_dark
+
+    if np.isclose(finite.min(), finite.max()):
+        sample_positions = np.array([0.5], dtype=float)
+    else:
+        sample_values = np.quantile(finite, [0.2, 0.5, 0.8])
+        sample_positions = (sample_values - finite.min()) / (finite.max() - finite.min())
+
+    cmap = plt.get_cmap(cmap_name)
+    luminance = np.mean([relative_luminance(cmap(float(pos))) for pos in sample_positions])
+    if luminance < 0.42:
+        return config.contour_line_light
+    return config.contour_line_dark
+
+
+def choose_foreground_color_for_surface(surface: np.ndarray, cmap_name: str,
+                                        config: ExplainabilityConfig,
+                                        loc: str = 'upper right') -> str:
+    """Choose a contrasting foreground color from the local surface background."""
+    array = np.asarray(surface, dtype=float)
+    if array.ndim != 2:
+        return choose_contour_line_color(surface, cmap_name, config)
+
+    row_extent = max(1, int(np.ceil(array.shape[0] * 0.30)))
+    col_extent = max(1, int(np.ceil(array.shape[1] * 0.35)))
+    row_slice = slice(0, row_extent) if 'upper' in loc else slice(array.shape[0] - row_extent, array.shape[0])
+    col_slice = slice(array.shape[1] - col_extent, array.shape[1]) if 'right' in loc else slice(0, col_extent)
+    local_surface = array[row_slice, col_slice]
+    return choose_contour_line_color(local_surface, cmap_name, config)
+
+
+def style_legend_for_surface(legend, surface: np.ndarray, cmap_name: str,
+                             config: ExplainabilityConfig, loc: str = 'upper right'):
+    """Apply local background-aware legend styling for contour panels."""
+    foreground = choose_foreground_color_for_surface(surface, cmap_name, config, loc=loc)
+    for text in legend.get_texts():
+        text.set_color(foreground)
+    for handle in legend.legend_handles:
+        if hasattr(handle, 'set_markeredgecolor'):
+            handle.set_markeredgecolor(foreground)
+        if hasattr(handle, 'set_color') and isinstance(handle, Line2D) and handle.get_linestyle() != 'None':
+            handle.set_color(foreground)
+
+
+def pair_surface_balance(surface: np.ndarray) -> float:
+    """Measure whether both axes materially influence the surface."""
+    array = np.asarray(surface, dtype=float)
+    row_effect = float(np.std(array.mean(axis=1)))
+    col_effect = float(np.std(array.mean(axis=0)))
+    return min(row_effect, col_effect) / (max(row_effect, col_effect) + 1e-9)
+
+
+def pair_support_occupancy(x_values: np.ndarray, y_values: np.ndarray) -> int:
+    """Estimate how many coarse 2D support bins are occupied by observed points."""
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    mask = np.isfinite(x_values) & np.isfinite(y_values)
+    if not np.any(mask):
+        return 0
+    points = np.column_stack([x_values[mask], y_values[mask]])
+    x_bins = np.unique(np.quantile(points[:, 0], np.linspace(0, 1, 6)))
+    y_bins = np.unique(np.quantile(points[:, 1], np.linspace(0, 1, 6)))
+    if len(x_bins) < 2 or len(y_bins) < 2:
+        return 1
+    hist, _, _ = np.histogram2d(points[:, 0], points[:, 1], bins=[x_bins, y_bins])
+    return int(np.sum(hist > 0))
+
+
+def select_interaction_pairs(model, scaler, X: np.ndarray, feature_names: Sequence[str],
+                             importance_df: pd.DataFrame, df: pd.DataFrame,
+                             is_composite: bool, config: ExplainabilityConfig):
+    """Choose interaction pairs as rank1×rank2, rank1×rank3, and rank1×rank4."""
+    top_features = importance_df.head(4)['feature'].tolist()
+    resolved = [
+        (feat, resolve_feature_index(feat, feature_names), resolve_feature_full_name(feat, feature_names))
+        for feat in top_features
+    ]
+    resolved = [(feat, idx, full) for feat, idx, full in resolved if idx >= 0]
+    if len(resolved) < 2:
+        return []
+    anchor = resolved[0]
+    return [
+        (anchor, resolved[idx])
+        for idx in range(1, min(len(resolved), config.n_top_pairs + 1))
     ]
 
 
@@ -740,18 +876,9 @@ def plot_interaction_contours(model, scaler, X: np.ndarray, feature_names: Seque
                               output_dir: str, is_composite: bool,
                               config: ExplainabilityConfig):
     """Create support-aware interaction contour plots for the strongest feature pairs."""
-    top_features = importance_df.head(4)['feature'].tolist()
-    resolved = [
-        (feat, resolve_feature_index(feat, feature_names), resolve_feature_full_name(feat, feature_names))
-        for feat in top_features
-    ]
-    resolved = [(feat, idx, full) for feat, idx, full in resolved if idx >= 0]
-
-    pairs = []
-    for i in range(len(resolved)):
-        for j in range(i + 1, len(resolved)):
-            pairs.append((resolved[i], resolved[j]))
-    pairs = pairs[:config.n_top_pairs]
+    pairs = select_interaction_pairs(model, scaler, X, feature_names, importance_df, df, is_composite, config)
+    if not pairs:
+        return
 
     fig, axes = plt.subplots(1, len(pairs), figsize=(6.4 * len(pairs), 5.9))
     axes = np.atleast_1d(axes)
@@ -778,8 +905,9 @@ def plot_interaction_contours(model, scaler, X: np.ndarray, feature_names: Seque
 
         support_mask = infer_support_mask_2d(X1, X2, X[:, idx1], X[:, idx2], config)
         contour = ax.contourf(X1, X2, Z, levels=18, cmap=viability_cmap)
-        ax.contour(X1, X2, Z, levels=9, colors='white', linewidths=2, alpha=0.22)
-        ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors='white',
+        contour_line_color = choose_contour_line_color(Z, viability_cmap, config)
+        ax.contour(X1, X2, Z, levels=9, colors=contour_line_color, linewidths=2, alpha=0.22)
+        ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors=contour_line_color,
                    linewidths=2, alpha=0.82, linestyles='--', zorder=5)
         plt.colorbar(contour, ax=ax, label='Predicted Viability (%)')
 
@@ -789,7 +917,15 @@ def plot_interaction_contours(model, scaler, X: np.ndarray, feature_names: Seque
         ax.set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
         ax.set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
         ax.set_title(f'{clean_feature_name(full1)} × {clean_feature_name(full2)}', fontsize=13 + FONT_BUMP, fontweight='bold', pad=10)
-        ax.legend(handles=source_legend_handles(config), loc='upper right')
+        legend_loc = 'upper right'
+        legend = ax.legend(
+            handles=source_legend_handles(
+                config,
+                edge_color=choose_foreground_color_for_surface(Z, viability_cmap, config, loc=legend_loc),
+            ),
+            loc=legend_loc,
+        )
+        style_legend_for_surface(legend, Z, viability_cmap, config, loc=legend_loc)
 
     plt.suptitle('Support-Aware Ingredient Interaction Effects on Cell Viability',
                  fontsize=19 + FONT_BUMP, fontweight='bold', y=0.985)
@@ -870,13 +1006,14 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
     contour2 = axes[1].contourf(X1, X2, Z_std, levels=18, cmap=config.cmap_uncertainty)
     contour3 = axes[2].contourf(X1, X2, Z_score, levels=18, cmap=config.cmap_acquisition)
 
-    for ax, contour, surface, title, label in [
+    for ax, contour, surface, title, label, cmap_name in [
         (
             axes[0],
             contour1,
             Z_mean,
             'GP Mean Prediction',
             'Predicted Viability (%)',
+            config.cmap_viability,
         ),
         (
             axes[1],
@@ -884,6 +1021,7 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
             Z_std,
             'GP Uncertainty',
             'Uncertainty (std)',
+            config.cmap_uncertainty,
         ),
         (
             axes[2],
@@ -891,10 +1029,12 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
             Z_score,
             'Static BO Score (UCB - penalties)',
             'Static BO Score',
+            config.cmap_acquisition,
         ),
     ]:
-        ax.contour(X1, X2, surface, levels=9, colors='white', linewidths=2, alpha=0.18)
-        ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors='white',
+        contour_line_color = choose_contour_line_color(surface, cmap_name, config)
+        ax.contour(X1, X2, surface, levels=9, colors=contour_line_color, linewidths=2, alpha=0.18)
+        ax.contour(X1, X2, support_mask.astype(float), levels=[0.5], colors=contour_line_color,
                    linewidths=2, alpha=0.82, linestyles='--', zorder=5)
         overlay_source_points(ax, X[:, idx1], X[:, idx2], df, config, alpha_literature=0.35, alpha_wetlab=0.9)
         ax.set_xlim(x_min, x_max)
@@ -903,15 +1043,15 @@ def plot_acquisition_landscape(model, scaler, X: np.ndarray, y: np.ndarray,
         ax.set_xlabel(f'{clean_feature_name(full1)} ({get_unit(full1)})')
         ax.set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
         ax.set_title(title, fontsize=14 + FONT_BUMP, fontweight='bold', pad=10)
-
-    best_idx = int(np.argmax(y))
-    for ax in axes:
-        ax.scatter(X[best_idx, idx1], X[best_idx, idx2], c=config.color_wetlab, s=160,
-                   marker='*', edgecolors='white', linewidths=2, zorder=9)
-        ax.legend(handles=source_legend_handles(config) + [
-            Line2D([0], [0], marker='*', color='none', markerfacecolor=config.color_wetlab,
-                   markeredgecolor='white', markeredgewidth=1.2, label='Best observed', markersize=13)
-        ], loc='upper right')
+        legend_loc = 'upper right'
+        legend = ax.legend(
+            handles=source_legend_handles(
+                config,
+                edge_color=choose_foreground_color_for_surface(surface, cmap_name, config, loc=legend_loc),
+            ),
+            loc=legend_loc,
+        )
+        style_legend_for_surface(legend, surface, cmap_name, config, loc=legend_loc)
 
     plt.suptitle('Acquisition Function Landscape: Exploration vs Exploitation',
                  fontsize=20 + FONT_BUMP, fontweight='bold', y=0.985)
@@ -1045,28 +1185,32 @@ def plot_support_diagnostics(X: np.ndarray, y: np.ndarray, feature_names: Sequen
         wetlab_values = values[masks['wetlab']]
         support_color = config.line_primary
         if HAS_SEABORN:
-            sns.kdeplot(x=literature_values, ax=ax, fill=True, alpha=0.20,
+            sns.kdeplot(x=literature_values, ax=ax, fill=True, alpha=0.3,
                         color=support_color, linewidth=1.2, label='Literature')
             if len(wetlab_values) >= 2:
-                sns.kdeplot(x=wetlab_values, ax=ax, fill=True, alpha=0.95,
+                sns.kdeplot(x=wetlab_values, ax=ax, fill=True, alpha=0.8,
                             color=support_color, linewidth=1.2, label='Wet Lab')
         else:
-            ax.hist(literature_values, bins=24, density=True, alpha=0.20,
+            ax.hist(literature_values, bins=24, density=True, alpha=0.3,
                     color=support_color, label='Literature')
             if len(wetlab_values) >= 1:
-                ax.hist(wetlab_values, bins=min(18, max(6, len(wetlab_values))), density=True, alpha=0.95,
+                ax.hist(wetlab_values, bins=min(18, max(6, len(wetlab_values))), density=True, alpha=0.8,
                         color=support_color, label='Wet Lab')
         ax.set_xlim(x_min, x_max)
         ax.set_xlabel(f'{clean_feature_name(full)} ({get_unit(full)})')
         ax.set_ylabel('Observed density')
         ax.set_title(f'Support: {clean_feature_name(full)}', fontsize=13 + FONT_BUMP, fontweight='bold', pad=10)
-        ax.legend(handles=alpha_legend_handles(config, base_color=support_color), loc='upper right')
+        ax.legend(
+            handles=support_diagnostic_density_legend_handles(config, base_color=support_color),
+            loc='upper right',
+            **support_diagnostic_legend_kwargs(config),
+        )
 
-    scatter = ax3.scatter(X[:, idx1], X[:, idx2], c=y, cmap=config.cmap_viability, s=100,
+    scatter = ax3.scatter(X[:, idx1], X[:, idx2], c=y, cmap=config.cmap_viability, s=180,
                           alpha=0.20, edgecolors='white', linewidths=0.35)
     if masks['wetlab'].any():
         ax3.scatter(X[masks['wetlab'], idx1], X[masks['wetlab'], idx2], c=y[masks['wetlab']],
-                    cmap=config.cmap_viability, s=180, alpha=0.95, edgecolors='white', linewidths=0.6)
+                    cmap=config.cmap_viability, s=300, alpha=0.95, edgecolors='black', linewidths=0.6)
     x_min, x_max = quantile_range(X[:, idx1], config, weights=weights)
     y_min, y_max = quantile_range(X[:, idx2], config, weights=weights)
     ax3.set_xlim(x_min, x_max)
@@ -1076,7 +1220,11 @@ def plot_support_diagnostics(X: np.ndarray, y: np.ndarray, feature_names: Sequen
     ax3.set_ylabel(f'{clean_feature_name(full2)} ({get_unit(full2)})')
     ax3.set_title(f'Observed Support Map: {clean_feature_name(full1)} × {clean_feature_name(full2)}',
                   fontsize=14 + FONT_BUMP, fontweight='bold', pad=10)
-    ax3.legend(handles=alpha_legend_handles(config), loc='upper right')
+    ax3.legend(
+        handles=alpha_legend_handles(config, marker_scale=config.support_diagnostic_legend_scale),
+        loc='upper right',
+        **support_diagnostic_legend_kwargs(config),
+    )
 
     plt.suptitle('Support Diagnostics', fontsize=19 + FONT_BUMP, fontweight='bold', y=0.985)
     plt.tight_layout(rect=(0, 0, 1, 0.975))
