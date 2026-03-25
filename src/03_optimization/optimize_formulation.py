@@ -26,6 +26,7 @@ if _helper_dir not in sys.path:
     sys.path.insert(0, _helper_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
 from formulation_formatting import (  # noqa: E402
+    exceeds_explicit_percentage_cap_vector,
     format_formulation,
     normalize_formulation_vector,
 )
@@ -103,6 +104,18 @@ class FormulationOptimizer:
     def _apply_practical_floor(self, x: np.ndarray) -> np.ndarray:
         """Zero trace ingredients that should count as operationally absent."""
         return normalize_formulation_vector(x, self.feature_names)
+
+    def _is_feasible_formulation(self, x: np.ndarray) -> bool:
+        """Return True when one normalized candidate satisfies the active constraints."""
+        x_eval = self._apply_practical_floor(x)
+        n_ing = count_ingredients(x_eval)
+        if n_ing > self.config.max_ingredients or n_ing < 1:
+            return False
+        if self.dmso_index >= 0 and x_eval[self.dmso_index] > self.max_dmso_molar:
+            return False
+        if exceeds_explicit_percentage_cap_vector(x_eval, self.feature_names):
+            return False
+        return True
     
     def _get_feature_bounds(self) -> List[Tuple[float, float]]:
         """Get bounds for each feature based on typical concentration ranges."""
@@ -182,17 +195,9 @@ class FormulationOptimizer:
         
         for i in range(n_samples):
             x = self._apply_practical_floor(self._generate_random_candidate())
-            
-            # Skip if too many ingredients
-            n_ing = count_ingredients(x)
-            if n_ing > self.config.max_ingredients or n_ing < 1:
+            if not self._is_feasible_formulation(x):
                 continue
-            
-            # Check DMSO constraint
-            if self.dmso_index >= 0:
-                dmso_molar = x[self.dmso_index]
-                if dmso_molar > self.max_dmso_molar:
-                    continue
+            n_ing = count_ingredients(x)
             
             # Predict viability
             x_reshaped = x.reshape(1, -1)
@@ -220,9 +225,14 @@ class FormulationOptimizer:
         
         if len(candidates) == 0:
             # Fallback: generate at least some candidates without constraints
-            print("Warning: No valid candidates, relaxing constraints...")
-            for i in range(n_candidates):
+            print("Warning: No valid candidates, retrying under hard feasibility constraints...")
+            fallback_attempts = 0
+            max_fallback_attempts = max(n_candidates * 200, 200)
+            while len(candidates) < n_candidates and fallback_attempts < max_fallback_attempts:
+                fallback_attempts += 1
                 x = self._apply_practical_floor(self._generate_random_candidate())
+                if not self._is_feasible_formulation(x):
+                    continue
                 x_reshaped = x.reshape(1, -1)
                 if self.is_composite:
                     pred_mean, pred_std = self.gp.predict(x_reshaped, return_std=True)
@@ -239,6 +249,8 @@ class FormulationOptimizer:
                     'n_ingredients': count_ingredients(x),
                     'formulation': x.copy(),
                 })
+            if len(candidates) == 0:
+                print("Warning: no feasible candidates satisfied the explicit percentage cap.")
         
         # Sort by predicted viability and select top candidates
         candidates.sort(key=lambda c: c['predicted_viability'], reverse=True)

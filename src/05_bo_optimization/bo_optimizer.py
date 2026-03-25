@@ -31,6 +31,8 @@ if _helper_dir not in sys.path:
     sys.path.insert(0, _helper_dir)
 from active_model_resolver import ModelResolutionError, resolve_active_model  # noqa: E402
 from formulation_formatting import (  # noqa: E402
+    explicit_percentage_cap_excess_from_matrix,
+    exceeds_explicit_percentage_cap_vector,
     format_formulation,
     normalize_formulation_matrix,
     normalize_formulation_vector,
@@ -389,6 +391,15 @@ class BayesianOptimizer:
         """Clip a formulation to the configured feature bounds."""
         return np.clip(np.asarray(x, dtype=float), self.bound_lows, self.bound_highs)
 
+    def _is_feasible_formulation(self, x: np.ndarray) -> bool:
+        """Return True when one normalized candidate satisfies hard search constraints."""
+        x_eval = self._sparsify(self._clip_to_bounds(x))
+        if self.dmso_index >= 0 and x_eval[self.dmso_index] > self.max_dmso_molar:
+            return False
+        if exceeds_explicit_percentage_cap_vector(x_eval, self.feature_names):
+            return False
+        return True
+
     def _build_initial_population(self,
                                   seed_points: Optional[List[np.ndarray]],
                                   seed: int) -> np.ndarray:
@@ -552,6 +563,7 @@ class BayesianOptimizer:
         penalty = np.zeros(len(X_sparse), dtype=float)
         if self.dmso_index >= 0:
             penalty += np.maximum(0.0, X_sparse[:, self.dmso_index] - self.max_dmso_molar) * 50.0
+        penalty += explicit_percentage_cap_excess_from_matrix(X_sparse, self.feature_names) * 50.0
         penalty += self._complexity_penalty_batch(X_sparse)
         penalty += self._support_penalty_batch(X_sparse)
         if found_candidates:
@@ -664,7 +676,7 @@ class BayesianOptimizer:
 
         for seed_x in seed_formulations:
             seed_candidate = self._evaluate_candidate(seed_x, y_best)
-            if self.dmso_index >= 0 and seed_candidate['formulation'][self.dmso_index] > self.max_dmso_molar:
+            if not self._is_feasible_formulation(seed_candidate['formulation']):
                 continue
             if self._is_duplicate(seed_candidate['formulation'], found_formulations):
                 continue
@@ -694,6 +706,13 @@ class BayesianOptimizer:
             if self.dmso_index >= 0:
                 x_opt[self.dmso_index] = min(x_opt[self.dmso_index], self.max_dmso_molar)
                 x_opt = self._sparsify(self._clip_to_bounds(x_opt))
+
+            if not self._is_feasible_formulation(x_opt):
+                if len(candidates) < n_candidates and attempt < max_attempts:
+                    spinner.update(
+                        f"{len(candidates)}/{n_candidates} candidates | DE attempt {attempt + 1}/{max_attempts}"
+                    )
+                continue
 
             if self._is_duplicate(x_opt, found_formulations):
                 if len(candidates) < n_candidates and attempt < max_attempts:

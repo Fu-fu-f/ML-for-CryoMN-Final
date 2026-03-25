@@ -44,6 +44,9 @@ for path in [PROJECT_ROOT, VALIDATION_LOOP_DIR, BO_DIR, HELPER_DIR]:
         sys.path.insert(0, path_str)
 
 from formulation_formatting import (  # noqa: E402
+    EXPLICIT_PERCENTAGE_CAP,
+    exceeds_explicit_percentage_cap_mapping,
+    explicit_percentage_total_from_mapping,
     format_formulation,
     normalize_formulation_dataframe,
     normalize_formulation_row,
@@ -1578,6 +1581,13 @@ def validate_output_rows(
         dmso_percent = float(row.get("dmso_percent", 0.0))
         if dmso_percent > optimizer.config.max_dmso_percent + 1e-6:
             raise ValidationError(f"Row {idx + 1} exceeds the DMSO cap.")
+
+        if exceeds_explicit_percentage_cap_mapping(row, active_stage.feature_names):
+            pct_total = explicit_percentage_total_from_mapping(row, active_stage.feature_names)
+            raise ValidationError(
+                f"Row {idx + 1} exceeds the explicit percentage cap "
+                f"({pct_total:.4f}% > {EXPLICIT_PERCENTAGE_CAP:.1f}%)."
+            )
 
         for feature_index, feature_name in enumerate(active_stage.feature_names):
             low, high = optimizer.bounds[feature_index]
