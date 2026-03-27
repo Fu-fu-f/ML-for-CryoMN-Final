@@ -1,0 +1,105 @@
+================================================================================
+CryoMN Random-Sampling Formulation Candidates
+Generated: 2026-03-27 11:42
+================================================================================
+
+Rank 1: 304.7mM ectoin + 1.55M ethylene_glycol
+  Predicted viability: 72.2% ± 15.6%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 2: 143.1mM ectoin + 1.28M ethylene_glycol
+  Predicted viability: 66.8% ± 15.3%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 3: 161.2mM ectoin + 1.05M ethylene_glycol
+  Predicted viability: 63.7% ± 15.5%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 4: 34.7% fbs + 2.35M glycerol + 6.0% hsa
+  Predicted viability: 61.6% ± 15.7%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 5: 362.5mM ethylene_glycol + 2.44M propylene_glycol + 607.2mM sucrose
+  Predicted viability: 51.5% ± 16.6%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 6: 975.7mM ethylene_glycol + 8.5% hsa + 67.6mM proline
+  Predicted viability: 51.4% ± 15.1%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 7: 88.5mM betaine + 75.6% human_serum
+  Predicted viability: 48.5% ± 27.5%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 8: 133.2mM betaine + 2.24M creatine + 34.3mM dmso + 414.5mM ectoin + 2.18M ethylene_glycol
+  Predicted viability: 48.4% ± 27.3%
+  DMSO: 0.2%
+  Ingredients: 5
+
+Rank 9: 1.02M ethylene_glycol + 2.39M propylene_glycol
+  Predicted viability: 48.2% ± 27.4%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 10: 2.4% dextran + 1.67M propylene_glycol + 611.8mM sucrose
+  Predicted viability: 48.1% ± 16.7%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 11: 0.2% dextran + 44.9mM ectoin + 34.4% fbs + 6.4% pvp
+  Predicted viability: 47.8% ± 26.3%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 12: 26.2mM ectoin + 1.57M ethylene_glycol + 40.0% fbs + 1.01M propylene_glycol + 6.2% pvp
+  Predicted viability: 47.2% ± 27.6%
+  DMSO: 0.0%
+  Ingredients: 5
+
+Rank 13: 51.9mM dmso + 1.5% hes + 1.4% peg_3350 + 111.5mM proline + 938.2mM propylene_glycol + 2.1% pvp
+  Predicted viability: 46.5% ± 27.4%
+  DMSO: 0.4%
+  Ingredients: 6
+
+Rank 14: 40.9mM dmso + 473.4mM ethylene_glycol + 27.5% fbs + 8.0% pvp + 196.5mM raffinose
+  Predicted viability: 46.5% ± 27.6%
+  DMSO: 0.3%
+  Ingredients: 5
+
+Rank 15: 2.23M ethylene_glycol + 33.5% human_serum
+  Predicted viability: 46.1% ± 27.7%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 16: 1.1% dextran + 78.9% fbs + 8.3% pvp + 953.4mM raffinose
+  Predicted viability: 45.9% ± 27.7%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 17: 833.9mM ethylene_glycol + 2.34M glycerol + 2.6% hsa + 26.2% human_serum
+  Predicted viability: 45.9% ± 27.7%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 18: 17.7mM dmso + 9.5mM proline + 2.24M propylene_glycol + 3.3% pvp + 339.6mM raffinose + 774.9mM sucrose
+  Predicted viability: 45.8% ± 27.7%
+  DMSO: 0.1%
+  Ingredients: 6
+
+Rank 19: 153.1mM betaine + 42.6mM ethylene_glycol + 2.0% human_serum + 33.3mM proline + 7.7% pvp + 464.7mM raffinose + 147.4mM sucrose + 79.8mM trehalose
+  Predicted viability: 45.8% ± 27.7%
+  DMSO: 0.0%
+  Ingredients: 8
+
+Rank 20: 0.8% dextran + 7.1% hsa + 10.8% human_serum + 0.9% peg_3350
+  Predicted viability: 45.8% ± 27.5%
+  DMSO: 0.0%
+  Ingredients: 4
+

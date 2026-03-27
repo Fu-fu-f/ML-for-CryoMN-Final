@@ -4,4 +4,5 @@ stage,label,iteration_dir,timestamp,model_method,batch_dates,batch_rows,batch_rm
 2,iteration_2,iteration_2_prior_mean,2026-03-09T23:49:45.912284,prior_mean_correction,2026-03-10,6,14.7438,0.0857,0.6667,,,,,,
 3,iteration_3,iteration_3_prior_mean,2026-03-11T13:39:36.472392,prior_mean_correction,2026-03-12,8,21.0461,0.4762,0.625,,,,,,
 4,iteration_4,iteration_4_prior_mean,2026-03-16T19:05:04.690495,prior_mean_correction,2026-03-17,6,9.2409,-0.6,1.0,,,,,,
-5,iteration_5,iteration_5_prior_mean,2026-03-18T14:03:08.919319,prior_mean_correction,,0,,,,0.0,,,,,
+5,iteration_5,iteration_5_prior_mean,2026-03-18T14:03:08.919319,prior_mean_correction,"2026-03-24,2026-03-26",23,20.8718,0.7935,0.8261,12.0,76.198,0.8,19.6563,0.4286,1.0
+6,iteration_6,iteration_6_prior_mean,2026-03-27T11:41:35.221080,prior_mean_correction,,0,,,,,,,,,

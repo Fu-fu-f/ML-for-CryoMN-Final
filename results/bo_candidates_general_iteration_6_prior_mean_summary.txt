@@ -1,0 +1,125 @@
+================================================================================
+CryoMN Bayesian Optimization Candidates (DE-based)
+Generated: 2026-03-27 11:58
+================================================================================
+
+Rank 1: 42.2mM dmso + 318.5mM ectoin + 2.12M ethylene_glycol + 13.6% fbs
+  Acquisition Value: 101.6608
+  Predicted viability: 92.6% ± 18.1%
+  DMSO: 0.3%
+  Ingredients: 4
+
+Rank 2: 27.1mM dmso + 309.4mM ectoin + 2.06M ethylene_glycol + 11.6% fbs + 0.2% methylcellulose
+  Acquisition Value: 101.1147
+  Predicted viability: 92.3% ± 17.6%
+  DMSO: 0.2%
+  Ingredients: 5
+
+Rank 3: 11.0mM dmso + 289.7mM ectoin + 2.00M ethylene_glycol + 6.3% fbs
+  Acquisition Value: 99.9370
+  Predicted viability: 92.1% ± 15.6%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 4: 21.0mM dmso + 291.1mM ectoin + 1.96M ethylene_glycol + 5.9% fbs
+  Acquisition Value: 99.6395
+  Predicted viability: 91.9% ± 15.6%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 5: 68.0mM dmso + 292.0mM ectoin + 1.94M ethylene_glycol + 14.6% fbs
+  Acquisition Value: 100.2706
+  Predicted viability: 91.2% ± 18.2%
+  DMSO: 0.5%
+  Ingredients: 4
+
+Rank 6: 316.7mM ectoin + 2.29M ethylene_glycol + 11.7% fbs
+  Acquisition Value: 99.8742
+  Predicted viability: 90.8% ± 18.1%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 7: 332.7mM ectoin + 1.96M ethylene_glycol + 14.6% fbs
+  Acquisition Value: 99.8591
+  Predicted viability: 90.8% ± 18.2%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 8: 271.6mM ectoin + 2.06M ethylene_glycol + 15.5% fbs
+  Acquisition Value: 99.3109
+  Predicted viability: 90.2% ± 18.2%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 9: 90.8mM dmso + 315.1mM ectoin + 2.19M ethylene_glycol + 8.9% fbs
+  Acquisition Value: 99.2507
+  Predicted viability: 90.0% ± 18.6%
+  DMSO: 0.6%
+  Ingredients: 4
+
+Rank 10: 7.9mM dmso + 317.1mM ectoin + 2.11M ethylene_glycol + 2.8% fbs
+  Acquisition Value: 97.2347
+  Predicted viability: 89.3% ± 16.0%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 11: 11.0mM dmso + 289.7mM ectoin + 1.81M ethylene_glycol + 5.7% fbs
+  Acquisition Value: 96.8211
+  Predicted viability: 89.1% ± 15.4%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 12: 21.0mM dmso + 291.1mM ectoin + 1.79M ethylene_glycol + 5.4% fbs
+  Acquisition Value: 96.2774
+  Predicted viability: 88.5% ± 15.5%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 13: 304.7mM ectoin + 1.83M ethylene_glycol + 1.4% fbs
+  Acquisition Value: 91.7475
+  Predicted viability: 84.0% ± 15.5%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 14: 11.0mM dmso + 289.7mM ectoin + 1.63M ethylene_glycol + 5.1% fbs
+  Acquisition Value: 90.4678
+  Predicted viability: 82.7% ± 15.5%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 15: 332.8mM ectoin + 2.10M ethylene_glycol + 15.5% fbs + 0.3% hsa + 0.8% human_serum + 208.7mM propylene_glycol
+  Acquisition Value: 93.1289
+  Predicted viability: 82.3% ± 21.7%
+  DMSO: 0.0%
+  Ingredients: 6
+
+Rank 16: 7.9mM dmso + 317.1mM ectoin + 1.73M ethylene_glycol + 2.3% fbs
+  Acquisition Value: 89.8845
+  Predicted viability: 82.1% ± 15.5%
+  DMSO: 0.1%
+  Ingredients: 4
+
+Rank 17: 304.7mM ectoin + 1.55M ethylene_glycol + 6.5% fbs
+  Acquisition Value: 87.6342
+  Predicted viability: 79.8% ± 15.7%
+  DMSO: 0.0%
+  Ingredients: 3
+
+Rank 18: 304.7mM ectoin + 1.55M ethylene_glycol + 5.1% fbs + 0.6% hsa
+  Acquisition Value: 84.8198
+  Predicted viability: 76.8% ± 16.0%
+  DMSO: 0.0%
+  Ingredients: 4
+
+Rank 19: 243.6mM ectoin + 1.71M ethylene_glycol
+  Acquisition Value: 83.9753
+  Predicted viability: 76.0% ± 16.0%
+  DMSO: 0.0%
+  Ingredients: 2
+
+Rank 20: 11.0mM dmso + 309.9mM ectoin + 1.56M ethylene_glycol
+  Acquisition Value: 80.5520
+  Predicted viability: 72.7% ± 15.6%
+  DMSO: 0.1%
+  Ingredients: 3
+
