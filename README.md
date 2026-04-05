@@ -68,12 +68,12 @@ The snapshot dated 2026-03-16 uses the composite prior-mean correction checkpoin
 | Metric | Final (Iteration 7) Value |
 |--------|---------------|
 | Total wet-lab validation rows | 125 |
-| Peak validated viability | **95.15%** |
-| Peak formulation (EXP5110) | **21.0mM DMSO + 291.1mM Ectoin + 1.79M Ethylene Glycol + 5.4% FBS** |
+| **Absolute Peak Viability** | **95.15% (EXP5110)** |
+| **DMSO-Free Peak Viability** | **79.09% (EXP1105)** |
+| Peak DMSO-Free Formulation | **304.7mM Ectoin + 1.55M Ethylene Glycol** |
 | Average viability (Last batch) | 68.42% |
-| Improvement over literature | +25.06% |
 
-The Iteration 7 model successfully identified the synergistic 'sweet spot' between Ectoin and Ethylene Glycol, breaking the 90% viability barrier while keeping toxic DMSO to trace levels (0.15% v/v).
+The Iteration 7 model successfully achieved a dual breakthrough: pushing the absolute viability to a record high of 95.15% (with trace 0.15% DMSO), while simultaneously discovering the synergistic 'sweet spot' between Ectoin and Ethylene Glycol that allows for a **completely DMSO-free** formulation with a peak viability of 79.09%.
 
 The snapshot highlights the ectoin + ethylene glycol ridge, while the
 residual-driven `07_next_formulations` step adapts to the blind spots exposed
